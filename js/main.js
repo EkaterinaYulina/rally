@@ -204,12 +204,28 @@
      bg23 (2.3)  — лампа над столом иногда моргает
      bg24 (2.4)  — снежная пыль из-под колёс, позёмка, пар дыхания зрителей
      bg25 (2.5)  — «запись с онборда» на экране ноутбука, снег в окне, голубой свет экрана
+     bg41 (4.1)  — лампа и окно «дышат», экран ноутбука мерцает
+     bg42 (4.2)  — дымок из выхлопа, туман над полем, солнце за облаками
+     bg43 (4.3)  — пыль и щебень из-под машины в прыжке
+     bg44 (4.4)  — рабочий прожектор «дышит» и иногда моргает, пылинки в луче, тёплая дымка
+     bg45 (4.5)  — мигают контрольные лампы масла и двигателя, тлеет подсветка приборов
+     bg45b (4.5Б) — дрейфующий туман, фары «дышат»
+     bg46 (4.6)  — капли по лобовому стеклу в сумерках, свет фар на дороге, мигают красные лампы, низкий туман
+     bg47a (4.7) — позёмка из песка, жар над землёй, блики на кубке и бутылке
+     bg47b (4.7) — пылинки в солнечном свете, дымка над площадкой
+     bg48 (4.8)  — пар из-под капота, прожекторы «дышат», ночная дымка
+     bg48b (4.8) — то же для кадра «всё в масле»: пар из-под капота, прожекторы, дымка
+     bg49 (4.9)  — лампа «дышит», мерцает экран ноутбука, пар над кружкой
      drive       — ощущение езды (см. DRIVE ниже): bg12 (1.2), bg33 (3.3), bg37 (3.7) — «подъезжающая» дорога из салона; bg24 (2.4) — фон плывёт за машиной */
   var FX_BG = {
     bg11: ['rain', 'puff:smoke', 'headlights'], bg12: ['glass'], bg13: ['puff:smoke13', 'lights13', 'mist'],
     bg14: ['rain', 'mist', 'glow'], bg15: ['glow', 'screen15', 'snow'], bg21: ['puff:steam'], bg22: ['snow'], bg23: ['flicker'],
     bg24: ['snow', 'puff:dust24', 'puff:breath24'], bg25: ['video25', 'glow', 'snow'],
-    bg33: ['puff:steam33', 'led33']
+    bg33: ['puff:steam33', 'led33'],
+    bg41: ['glow', 'screen'], bg42: ['mist', 'puff:exhaust42', 'glow'], bg43: ['puff:dust43'],
+    bg44: ['mist', 'flicker', 'snow', 'glow'], bg45: ['glow', 'blink'], bg45b: ['mist', 'glow'],
+    bg46: ['mist', 'glass', 'glow', 'blink'], bg47a: ['mist', 'snow', 'glint'], bg47b: ['mist', 'snow', 'glow'],
+    bg48: ['mist', 'puff:steam48', 'glow'], bg48b: ['mist', 'puff:steam48b', 'glow'], bg49: ['glow', 'screen', 'puff:steam49']
   };
   var RAIN = {
     bg11: { n: .2, sp: 1, len: 1, hl: true, rings: true, col: [190, 205, 228] },
@@ -219,16 +235,56 @@
     bg22: { poly: [[0, 0], [1058, 0], [1088, 612], [380, 900], [0, 900]], n: 1, sc: 1, vx: 0 },
     bg15: { poly: [[992, 18], [1224, 18], [1224, 222], [992, 222]], n: .22, sc: .6, vx: 0, local: true },
     bg25: { poly: [[212, 48], [406, 48], [406, 212], [212, 212]], n: .22, sc: .6, vx: 0, local: true },
-    bg24: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.1, sc: 1, vx: -70, fast: 1, col: '170,185,205' }
+    bg24: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.1, sc: 1, vx: -70, fast: 1, col: '170,185,205' },
+    bg44: { poly: [[1050, 120], [1330, 120], [1420, 560], [880, 560]], n: .3, sc: .5, vx: 0, local: true, col: '255,235,190' },
+    bg47a: { poly: [[0, 500], [1600, 500], [1600, 900], [0, 900]], n: 1.4, sc: .8, vx: -170, fast: 1, streak: 1, col: '238,208,152' },
+    bg47b: { poly: [[160, 210], [1440, 210], [1440, 640], [160, 640]], n: .35, sc: .5, vx: 0, local: true, col: '255,236,186' }
   };
   var MIST = {
     bg13: [{ y: 640, rx: 460, ry: 70, sp: 11, a: .075, col: [135, 155, 180], off: 0 }, { y: 560, rx: 520, ry: 60, sp: -7, a: .06, col: [120, 145, 175], off: 700 }, { y: 300, rx: 540, ry: 130, sp: 5, a: .05, col: [115, 140, 170], off: 300 }],
-    bg14: [{ y: 380, rx: 560, ry: 120, sp: 14, a: .10, col: [232, 232, 226], off: 0 }, { y: 640, rx: 620, ry: 90, sp: -9, a: .08, col: [225, 225, 220], off: 800 }, { y: 200, rx: 640, ry: 130, sp: 7, a: .07, col: [235, 235, 232], off: 400 }]
+    bg14: [{ y: 380, rx: 560, ry: 120, sp: 14, a: .10, col: [232, 232, 226], off: 0 }, { y: 640, rx: 620, ry: 90, sp: -9, a: .08, col: [225, 225, 220], off: 800 }, { y: 200, rx: 640, ry: 130, sp: 7, a: .07, col: [235, 235, 232], off: 400 }],
+    bg42: [{ y: 455, rx: 520, ry: 42, sp: 9, a: .12, col: [210, 215, 220], off: 0 }, { y: 485, rx: 600, ry: 36, sp: -6, a: .09, col: [200, 205, 212], off: 800 }],
+    bg44: [{ y: 300, rx: 700, ry: 110, sp: 6, a: .07, col: [255, 230, 180], off: 0 }, { y: 560, rx: 760, ry: 60, sp: -5, a: .05, col: [235, 215, 170], off: 600 }],
+    bg45b: [{ y: 330, rx: 620, ry: 90, sp: 9, a: .09, col: [225, 228, 230], off: 0 }, { y: 560, rx: 700, ry: 70, sp: -6, a: .07, col: [215, 220, 224], off: 700 }, { y: 250, rx: 640, ry: 60, sp: 5, a: .06, col: [225, 228, 230], off: 300 }],
+    bg46: [{ y: 320, rx: 600, ry: 70, sp: 6, a: .07, col: [120, 140, 165], off: 0 }, { y: 260, rx: 700, ry: 60, sp: -4, a: .05, col: [110, 130, 158], off: 500 }],
+    bg47a: [{ y: 480, rx: 700, ry: 50, sp: 8, a: .10, col: [240, 215, 165], off: 0 }, { y: 600, rx: 760, ry: 40, sp: -6, a: .08, col: [235, 210, 160], off: 500 }],
+    bg47b: [{ y: 540, rx: 700, ry: 60, sp: 6, a: .07, col: [235, 215, 165], off: 0 }, { y: 420, rx: 640, ry: 60, sp: -4, a: .05, col: [235, 215, 170], off: 400 }],
+    bg48b: [{ y: 430, rx: 700, ry: 90, sp: 5, a: .08, col: [110, 125, 150], off: 0 }, { y: 560, rx: 800, ry: 60, sp: -4, a: .06, col: [100, 115, 140], off: 700 }],
+    bg48: [{ y: 430, rx: 700, ry: 90, sp: 5, a: .08, col: [110, 125, 150], off: 0 }, { y: 560, rx: 800, ry: 60, sp: -4, a: .06, col: [100, 115, 140], off: 700 }]
   };
   var GLOW = {
     bg14: [{ x: 1130, y: 235, r: 230, col: [255, 214, 150], a: .07, sp: .5 }],
     bg15: [{ x: 295, y: 185, r: 300, col: [255, 190, 100], a: .07, sp: .7 }, { x: 460, y: 290, r: 190, col: [120, 190, 255], a: .05, sp: 1.3 }],
-    bg25: [{ x: 850, y: 230, r: 430, col: [140, 190, 255], a: .05, sp: .9 }]
+    bg25: [{ x: 850, y: 230, r: 430, col: [140, 190, 255], a: .05, sp: .9 }],
+    bg41: [{ x: 940, y: 235, r: 420, col: [255, 200, 120], a: .07, sp: .6 }, { x: 780, y: 190, r: 300, col: [150, 185, 235], a: .04, sp: .4 }, { x: 240, y: 350, r: 260, col: [150, 200, 255], a: .05, sp: 1.1 }],
+    bg42: [{ x: 850, y: 70, r: 520, col: [255, 245, 220], a: .05, sp: .3 }],
+    bg44: [{ x: 1230, y: 125, r: 380, col: [255, 235, 190], a: .09, sp: .8 }],
+    bg45: [{ x: 720, y: 400, r: 300, col: [255, 90, 50], a: .04, sp: .7 }, { x: 1000, y: 420, r: 260, col: [255, 120, 60], a: .035, sp: .9 }],
+    bg45b: [{ x: 430, y: 365, r: 130, col: [255, 225, 160], a: .10, sp: .9 }, { x: 713, y: 385, r: 110, col: [255, 225, 160], a: .09, sp: 1.1 }],
+    bg46: [{ x: 780, y: 480, r: 420, col: [255, 215, 150], a: .05, sp: .5 }, { x: 330, y: 745, r: 200, col: [255, 150, 70], a: .06, sp: 1.2 }],
+    bg47b: [{ x: 600, y: 60, r: 600, col: [255, 235, 190], a: .05, sp: .35 }],
+    bg48: [{ x: 92, y: 287, r: 260, col: [255, 190, 110], a: .12, sp: .9 }, { x: 1190, y: 307, r: 300, col: [255, 190, 110], a: .12, sp: 1.1 }],
+    bg48b: [{ x: 90, y: 300, r: 260, col: [255, 190, 110], a: .12, sp: .9 }, { x: 1190, y: 305, r: 300, col: [255, 190, 110], a: .12, sp: 1.1 }],
+    bg49: [{ x: 420, y: 150, r: 420, col: [255, 170, 90], a: .10, sp: .7 }, { x: 625, y: 390, r: 330, col: [170, 210, 255], a: .04, sp: 1.3 }]
+  };
+  var FLICKER = {                                   // области, затемняемые при моргании света: [cx, cy, радиус, непрозрачность, растяжение x, растяжение y]
+    bg23: [[770, 330, 640, .5], [765, 100, 150, .78], [930, 124, 560, .5, 1, .05]],
+    bg44: [[1230, 125, 520, .34], [1232, 102, 110, .55]]
+  };
+  var SCRN = {                                      // экраны ноутбуков: мерцание и бегущая строка развёртки
+    bg41: { poly: [[140, 285], [331, 296], [333, 400], [144, 408]], col: '150,200,255', a: .06 },
+    bg49: { poly: [[447, 300], [797, 300], [797, 487], [447, 487]], col: '150,205,255', a: .05 }
+  };
+  var BLINK = {                                     // индикаторы, мигающие по-настоящему: x, y, радиус, цвет, период, доля «горит», яркость, сдвиг фазы
+    bg45: [{ x: 840, y: 469, r: 70, col: '255,190,60', per: 1.3, on: .55, a: .55 }, { x: 713, y: 437, r: 34, col: '255,150,50', per: 1.3, on: .55, a: .5 }, { x: 597, y: 413, r: 30, col: '255,150,50', per: 1.3, on: .55, a: .45 }, { x: 1000, y: 457, r: 34, col: '255,140,50', per: 1.3, on: .55, a: .45 }],
+    bg46: [{ x: 337, y: 716, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7 }, { x: 388, y: 720, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7, off: .55 }]
+  };
+  var GLINT = {                                     // блики на металле: x, y, размер, период, сдвиг
+    bg47a: [{ x: 672, y: 300, r: 34, per: 3.4, off: 0 }, { x: 655, y: 380, r: 28, per: 4.1, off: 1.3 }, { x: 713, y: 378, r: 22, per: 3.1, off: 2.2 }]
+  };
+  var GLASSCFG = {                                  // стекло, по которому стекают капли (по умолчанию — лобовое bg12)
+    bg46: { poly: [[10, 110], [200, 62], [700, 42], [900, 42], [1400, 62], [1590, 110], [1585, 520], [1500, 620], [1100, 610], [500, 610], [100, 620], [10, 540]],
+      x0: 120, x1: 1480, y0: 90, y1: 400, ymax: 590, tr: '205,218,238', g: ['rgba(238,244,252,.9)', 'rgba(190,205,226,.55)', 'rgba(170,190,215,.15)'] }
   };
   var fxC = document.getElementById('fx'), fxX = fxC && fxC.getContext ? fxC.getContext('2d') : null;
   var fxOn = false, fxRaf = 0, fxW = 0, fxH = 0, fxK = 1, fxLast = 0, fxOff = 0, fxKey = null, fxModes = [], fxImg = null;
@@ -241,7 +297,12 @@
     smoke13: { em: [[585, 392]], dx: -60, dy: -250, pw: .85, life: [4.5, 6.5], spawn: [.28, .45], r0: [8, 13], grow: 60, al: [.08, .14], col: [160, 172, 190], wob: [3, 24] },
     dust24:  { em: [[470, 468], [610, 502]], dx: -230, dy: -95, pw: .8, life: [1.8, 3.0], spawn: [.10, .18], r0: [14, 24], grow: 70, al: [.16, .26], col: [244, 247, 252], wob: [2, 14] },
     breath24: { em: [[1213, 303], [1276, 298], [1308, 294], [1371, 302], [1438, 297], [1473, 300]], dx: -18, dy: -34, pw: .9, life: [1.3, 2.0], spawn: [.35, .6], r0: [3, 5], grow: 11, al: [.18, .3], col: [250, 252, 255], wob: [1, 4] },
-    steam33: { em: [[938, 515]], dx: -8, dy: -105, pw: .9, life: [2.6, 3.8], spawn: [.28, .45], r0: [4, 7], grow: 24, al: [.10, .17], col: [236, 236, 240], wob: [2, 10] }
+    steam33: { em: [[938, 515]], dx: -8, dy: -105, pw: .9, life: [2.6, 3.8], spawn: [.28, .45], r0: [4, 7], grow: 24, al: [.10, .17], col: [236, 236, 240], wob: [2, 10] },
+    exhaust42: { em: [[300, 472]], dx: -150, dy: -80, pw: .8, life: [2.8, 4.2], spawn: [.28, .45], r0: [8, 14], grow: 50, al: [.07, .12], col: [175, 178, 185], wob: [3, 18] },
+    dust43:  { em: [[420, 470], [300, 495], [190, 480], [110, 470]], dx: -250, dy: -50, pw: .8, life: [2.4, 3.8], spawn: [.08, .15], r0: [30, 50], grow: 110, al: [.16, .28], col: [226, 196, 140], wob: [4, 22] },
+    steam48: { em: [[900, 350], [820, 345], [960, 320]], dx: 70, dy: -250, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
+    steam48b: { em: [[870, 372], [800, 366], [960, 352]], dx: 70, dy: -260, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
+    steam49: { em: [[1003, 498]], dx: -10, dy: -150, pw: .9, life: [2.2, 3.4], spawn: [.28, .45], r0: [4, 7], grow: 22, al: [.10, .17], col: [240, 236, 228], wob: [2, 10] }
   };
   var GLASS12 = [[125, 150], [300, 48], [1300, 48], [1475, 150], [1385, 585], [1225, 622], [260, 622]];
   var SCREEN25 = [[691, 163], [1010, 156], [998, 334], [688, 324]], VP25 = [850, 262];
@@ -432,12 +493,13 @@
 
   /* быстро стекающие по лобовому стеклу капли (bg12) */
   function glassFx(x, m, tt, dt) {
+    var gc = GLASSCFG[fxKey] || { poly: GLASS12, x0: 200, x1: 1400, y0: 70, y1: 430, ymax: 618, tr: '255,222,170', g: ['rgba(255,240,205,.95)', 'rgba(255,205,130,.6)', 'rgba(255,190,100,.15)'] };
     gT -= dt;
     if (gT <= 0 && gdrops.length < 10) {
-      gdrops.push({ x: rnd(200, 1400), y: rnd(70, 430), r: rnd(3, 6.5), v: rnd(260, 520), ph: Math.random() * 6.28, trail: [], hold: rnd(.05, .5) });
+      gdrops.push({ x: rnd(gc.x0, gc.x1), y: rnd(gc.y0, gc.y1), r: rnd(3, 6.5), v: rnd(260, 520), ph: Math.random() * 6.28, trail: [], hold: rnd(.05, .5) });
       gT = rnd(.25, .7);
     }
-    x.save(); clipPoly(x, m, GLASS12); x.lineCap = 'round';
+    x.save(); clipPoly(x, m, gc.poly); x.lineCap = 'round';
     for (var q = gdrops.length - 1; q >= 0; q--) {
       var d = gdrops[q];
       if (d.hold > 0) d.hold -= dt;
@@ -446,16 +508,16 @@
         d.y += sp * dt; d.x += Math.sin(tt * 2.2 + d.ph) * 14 * dt;
         d.trail.push([d.x, d.y]); if (d.trail.length > 18) d.trail.shift();
       }
-      if (d.y > 618) { gdrops.splice(q, 1); continue; }
+      if (d.y > gc.ymax) { gdrops.splice(q, 1); continue; }
       var tl = d.trail;
       for (var k = 1; k < tl.length; k++) {
-        x.strokeStyle = 'rgba(255,222,170,' + (.22 * k / tl.length).toFixed(3) + ')'; x.lineWidth = Math.max(1, d.r * .55 * k / tl.length) * m.s;
+        x.strokeStyle = 'rgba(' + gc.tr + ',' + (.22 * k / tl.length).toFixed(3) + ')'; x.lineWidth = Math.max(1, d.r * .55 * k / tl.length) * m.s;
         x.beginPath(); x.moveTo(m.x + tl[k - 1][0] * m.s, m.y + tl[k - 1][1] * m.s); x.lineTo(m.x + tl[k][0] * m.s, m.y + tl[k][1] * m.s); x.stroke();
       }
       var cx = m.x + d.x * m.s, cy = m.y + d.y * m.s, rr = d.r * m.s;
       x.fillStyle = 'rgba(0,0,0,.28)'; x.beginPath(); x.ellipse(cx + rr * .15, cy + rr * .25, rr, rr * 1.25, 0, 0, 6.2832); x.fill();
       var g = x.createRadialGradient(cx - rr * .3, cy - rr * .4, 0, cx, cy, rr * 1.2);
-      g.addColorStop(0, 'rgba(255,240,205,.95)'); g.addColorStop(.6, 'rgba(255,205,130,.6)'); g.addColorStop(1, 'rgba(255,190,100,.15)');
+      g.addColorStop(0, gc.g[0]); g.addColorStop(.6, gc.g[1]); g.addColorStop(1, gc.g[2]);
       x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rr, rr * 1.2, 0, 0, 6.2832); x.fill();
     }
     x.restore();
@@ -483,9 +545,45 @@
       g.addColorStop(0, 'rgba(8,6,5,' + (a * L).toFixed(3) + ')'); g.addColorStop(.6, 'rgba(8,6,5,' + (a * L * .55).toFixed(3) + ')'); g.addColorStop(1, 'rgba(8,6,5,0)');
       x.fillStyle = g; x.fillRect(-R, -R, R * 2, R * 2); x.restore();
     }
-    rad(770, 330, 640, .50);
-    rad(765, 100, 150, .78);
-    rad(930, 124, 560, .5, 1, .05);
+    (FLICKER[fxKey] || []).forEach(function (c) { rad(c[0], c[1], c[2], c[3], c[4], c[5]); });
+  }
+  /* экран ноутбука (bg41, bg49): холодное мерцание и редкие скачки яркости */
+  function screenFx(x, m, tt) {
+    var c = SCRN[fxKey]; if (!c) return;
+    var xs = c.poly.map(function (p) { return p[0]; }), ys = c.poly.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(0, xs), x1 = Math.max.apply(0, xs), y0 = Math.min.apply(0, ys), y1 = Math.max.apply(0, ys);
+    var a = c.a * (1 + .5 * Math.sin(tt * 6.5) * Math.sin(tt * 1.3)) + (Math.sin(tt * 23) > .92 ? c.a * .9 : 0);
+    var sy = y1 - (((tt * 38) % (y1 - y0 + 40)) - 20);                    // тонкая полоса развёртки ползёт вверх
+    x.save(); clipPoly(x, m, c.poly); x.globalCompositeOperation = 'lighter';
+    x.fillStyle = 'rgba(' + c.col + ',' + a.toFixed(3) + ')'; x.fillRect(m.x + x0 * m.s, m.y + y0 * m.s, (x1 - x0) * m.s, (y1 - y0) * m.s);
+    x.fillStyle = 'rgba(' + c.col + ',.10)'; x.fillRect(m.x + x0 * m.s, m.y + sy * m.s, (x1 - x0) * m.s, 4 * m.s);
+    x.restore();
+  }
+  /* контрольные лампы: по-настоящему мигают (горят — гаснут), а не «дышат» */
+  function blinkFx(x, m, tt) {
+    x.globalCompositeOperation = 'lighter';
+    (BLINK[fxKey] || []).forEach(function (b) {
+      var ph = (((tt + (b.off || 0)) % b.per) + b.per) % b.per / b.per, lv = ph < b.on ? 1 : .08;
+      var cx = m.x + b.x * m.s, cy = m.y + b.y * m.s, r = b.r * m.s, g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, 'rgba(' + b.col + ',' + (b.a * lv).toFixed(3) + ')'); g.addColorStop(1, 'rgba(' + b.col + ',0)');
+      x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2);
+    });
+    x.globalCompositeOperation = 'source-over';
+  }
+  /* блик на металле: короткая вспышка четырёхлучевой звёздочкой */
+  function glintFx(x, m, tt) {
+    x.globalCompositeOperation = 'lighter';
+    (GLINT[fxKey] || []).forEach(function (b) {
+      var ph = (((tt + b.off) % b.per) + b.per) % b.per / b.per, lv = Math.pow(Math.max(0, Math.sin(Math.PI * Math.min(1, ph * 3.2))), 3) * (ph < .31 ? 1 : 0);
+      if (lv < .01) return;
+      var cx = m.x + b.x * m.s, cy = m.y + b.y * m.s, r = b.r * m.s * (.55 + .45 * lv);
+      var g = x.createRadialGradient(cx, cy, 0, cx, cy, r * .45);
+      g.addColorStop(0, 'rgba(255,250,235,' + (.8 * lv).toFixed(3) + ')'); g.addColorStop(1, 'rgba(255,240,200,0)');
+      x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2);
+      x.strokeStyle = 'rgba(255,248,225,' + (.7 * lv).toFixed(3) + ')'; x.lineWidth = Math.max(1, 1.4 * m.s); x.lineCap = 'round';
+      x.beginPath(); x.moveTo(cx - r, cy); x.lineTo(cx + r, cy); x.moveTo(cx, cy - r); x.lineTo(cx, cy + r); x.stroke();
+    });
+    x.globalCompositeOperation = 'source-over';
   }
 
   /* bg13: аварийные фары машины мигают, как при плохом контакте */
@@ -668,6 +766,9 @@
       else if (n === 'screen15') screen15Fx(x, m, tt);
       else if (n === 'video25') video25Fx(x, m, tt);
       else if (n === 'led33') led33Fx(x, m, tt);
+      else if (n === 'screen') screenFx(x, m, tt);
+      else if (n === 'blink') blinkFx(x, m, tt);
+      else if (n === 'glint') glintFx(x, m, tt);
     }
   }
   function fxMove(on) { if (on === moveOn) return; moveOn = on; moveT = performance.now() / 1000; if (STATIC) moveOn = false; }
@@ -728,7 +829,7 @@
       var w = el.ind[k].was; if (!w) return;
       if (!on || !chap0 || chap0[k] == null || stats[k] == null) { w.textContent = ''; return; }
       var a = wordFor(k, chap0[k]), b = wordFor(k, stats[k]);
-      w.textContent = a === b ? 'без изменений' : (stats[k] > chap0[k] ? '▲ было: ' : '▼ было: ') + a;
+      w.textContent = a === b ? '' : (stats[k] > chap0[k] ? '▲ было: ' : '▼ было: ') + a;   // без изменений — без подписи
       w.setAttribute('data-dir', a === b ? '' : (stats[k] > chap0[k] ? 'up' : 'down'));
     });
   }
@@ -1224,7 +1325,7 @@
   /* фоны подгружаем заранее, чтобы смена кадра не мигала */
   setTimeout(function () { Object.keys(S.bgs).forEach(function (k) { var im = new Image(); im.src = S.bgs[k].src; }); }, 600);
 
-  window.__vn = { jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
+  window.__vn = { bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
                   derived: function () { return derived(); }, snaps: function () { return snaps; },
                   protocol: function () { return Array.prototype.map.call(el.protoBody.querySelectorAll('tr'), function (r) { return Array.prototype.map.call(r.children, function (c) { return c.textContent; }); }); },
                   mode: function () { return mode; }, ended: function () { return ended; },
