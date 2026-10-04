@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="format-detection" content="telephone=no">
+<title>Путь — пролог и главы 2–4</title>
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Игровое поле: занимает всю доступную область, на очень широких окнах ограничено 2:1 -->
+<main id="stage" aria-label="Игра «Путь»">
+<div class="frame">
+
+  <div class="bg" id="bgA"></div>
+  <div class="bg" id="bgB"></div>
+  <canvas class="fx" id="fx" aria-hidden="true"></canvas>
+  <div class="bg-label" id="bgLabel" role="img" aria-label=""></div>
+  <div class="scrim scrim-top"></div>
+  <div class="scrim scrim-bottom"></div>
+
+  <!-- Шапка: место и длина СУ, индикаторы, «Маршрутный лист» -->
+  <header class="hud" id="hud">
+    <div class="loc" id="loc">
+      <span class="loc-dot" aria-hidden="true"></span>
+      <span class="loc-rally" id="locPre">Ралли</span>
+      <span class="loc-name" id="locName"></span>
+      <span class="loc-km" id="locKm"></span>
+    </div>
+
+    <div class="inds">
+      <div class="ind" id="indCar" role="status">
+        <span class="ind-name" id="indCarName"></span>
+        <span class="ind-word" id="indCarWord"></span>
+        <span class="ind-was" id="indCarWas"></span>
+      </div>
+      <div class="ind" id="indTrust" role="status">
+        <span class="ind-name" id="indTrustName"></span>
+        <span class="ind-word" id="indTrustWord"></span>
+        <span class="ind-was" id="indTrustWas"></span>
+      </div>
+    </div>
+
+    <button class="roadbook" id="roadbook" type="button" aria-label="Маршрутный лист">
+      <svg class="roadbook-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/>
+      </svg>
+      <span class="roadbook-txt">Маршрутный лист</span>
+    </button>
+  </header>
+
+  <!-- Портреты: один на реплику, поверх текстового окна (img создаются из STORY.speakers) -->
+  <div class="portraits" id="portraits" aria-hidden="true"></div>
+
+  <!-- Текстовое окно -->
+  <section class="dialog" id="dialog" aria-live="off">
+    <div class="dlg-name" id="dlgName"></div>
+    <p class="dlg-text" id="dlgText"><span id="tShown"></span><span id="tRest" class="rest"></span></p>
+    <div class="dlg-hint" id="dlgHint">Нажмите, чтобы продолжить</div>
+  </section>
+  <!-- Выбор реплики -->
+  <section class="choice" id="choice" role="group" aria-label="Выберите ответ" hidden></section>
+  <div class="sr-only" id="srLive" aria-live="polite"></div>
+
+  <!-- Протокол этапа: страница результатов, которую смотрит Алекс (строки считает модель сезона) -->
+  <section class="proto" id="proto" aria-label="Итоги этапа" hidden>
+    <div class="proto-sheet">
+      <div class="proto-title" id="protoTitle"></div>
+      <div class="proto-sub" id="protoSub"></div>
+      <table class="proto-tbl">
+        <thead><tr><th class="c-pl">Место</th><th class="c-cr">Экипаж</th><th class="c-gap" id="protoGap">Отставание от лидера</th><th class="c-pt">Очки</th></tr></thead>
+        <tbody id="protoBody"></tbody>
+      </table>
+    </div>
+  </section>
+  <div class="dlg-hint scr-hint" id="scrHint">Нажмите, чтобы продолжить</div>
+
+  <!-- Чёрный экран: удар, затемнение, строки на чёрном -->
+  <div class="cut" id="cut" aria-hidden="true">
+    <div class="cut-chap" id="cutChap"><div class="cut-chap-k" id="cKick"></div><div class="cut-chap-t" id="cTitle"></div></div>
+    <p class="cut-text" id="cutText"><span id="cShown"></span><span id="cRest" class="rest"></span></p>
+    <div class="dlg-hint cut-hint" id="cutHint">Нажмите, чтобы продолжить</div>
+  </div>
+
+  <!-- Маршрутный лист: оглавление сцен (вычитка и тестирование) -->
+  <section class="rb" id="rb" role="dialog" aria-modal="true" aria-label="Маршрутный лист" hidden>
+    <div class="rb-head">
+      <div class="rb-title">Маршрутный лист</div>
+      <button class="rb-close" id="rbClose" type="button">Закрыть</button>
+    </div>
+    <div class="rb-body" id="rbBody"></div>
+    <div class="rb-foot" id="rbFoot"></div>
+  </section>
+
+  <!-- Конец фрагмента -->
+  <div class="end" id="end" hidden>
+    <div class="end-card">
+      <div class="end-kicker">Пролог · главы 2–4</div>
+      <div class="end-title">Конец фрагмента</div>
+      <button class="end-btn" id="endBtn" type="button">Начать сначала</button>
+    </div>
+  </div>
+</div><!-- /frame -->
+</main>
+
+<!-- Заглушка для телефона в вертикальной ориентации -->
+<div class="rotate" id="rotate" role="alert">
+  <svg viewBox="0 0 64 64" width="72" height="72" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <g class="rotate-phone"><rect x="22" y="8" width="20" height="36" rx="4"/><path d="M30 39h4"/></g>
+    <path d="M14 50c6 6 18 8 28 3m0 0-6-1m6 1-1-6" opacity=".7"/>
+  </svg>
+  <div class="rotate-title">Поверните телефон</div>
+  <div class="rotate-sub">Игра работает в горизонтальном режиме</div>
+</div>
+
+<script src="js/rally-data.js"></script>
+<script src="js/rally-model.js"></script>
+<script src="js/story.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

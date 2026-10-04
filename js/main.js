@@ -1,0 +1,1233 @@
+/* «Путь» — пролог и главы 2–4: реплики, портреты, шапка, фоны, выбор, числа индикаторов, карточка главы, протокол этапа (модель сезона), автосохранение. */
+(function () {
+  'use strict';
+  var S = window.STORY, B = S.beats;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var STATIC = params.has('static') || REDUCED;   // без набора текста (проверка / отключена анимация)
+  var CPS_MS = 22;                                 // мс на символ
+
+  var el = {
+    stage: $('stage'), frame: document.querySelector('.frame'),
+    dialog: $('dialog'), name: $('dlgName'), shown: $('tShown'), rest: $('tRest'), hint: $('dlgHint'),
+    sr: $('srLive'), end: $('end'), endBtn: $('endBtn'),
+    choice: $('choice'), cut: $('cut'), cShown: $('cShown'), cRest: $('cRest'), cHint: $('cutHint'),
+    cKick: $('cKick'), cTitle: $('cTitle'),
+    bgA: $('bgA'), bgB: $('bgB'), bgLabel: $('bgLabel'),
+    locPre: $('locPre'), locName: $('locName'), locKm: $('locKm'),
+    portraits: {},
+    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas') },
+           trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas') } },
+    proto: $('proto'), protoTitle: $('protoTitle'), protoSub: $('protoSub'), protoBody: $('protoBody'), protoSheet: document.querySelector('.proto-sheet'), protoGap: $('protoGap'), scrHint: $('scrHint')
+  };
+
+  /* портреты — из списка говорящих */
+  (function () {
+    var host = $('portraits');
+    Object.keys(S.speakers).forEach(function (k) {
+      var p = S.speakers[k].portrait;
+      if (!p || el.portraits[p]) return;
+      var im = new Image();
+      im.className = 'portrait'; im.alt = ''; im.draggable = false; im.decoding = 'async';
+      im.setAttribute('data-who', p); im.src = 'assets/' + p + '.webp';
+      host.appendChild(im); el.portraits[p] = im;
+    });
+  })();
+
+  var i = 0, flags = {}, mode = 'beat';            // beat | choice | cut
+  var typing = false, timer = null, pos = 0, ended = false, autoT = null, cutAt = 0, bgCur = null, cutOpen = false, chapHold = false, chapT = null;
+  var stats = { car: null, trust: null };
+  var rbOpen = false, rbSel = {};
+  /* состояние, которое не лежит в флагах и пересобирается replay(): снимки 🤝/🔧 на старте этапов,
+     однократное «гашение» следующего прироста доверия ({наорал}), слова индикаторов на начало главы */
+  var snaps = {}, dampPending = false, chap0 = null;
+
+  /* ---------- модель сезона: места Алекса считаются по снимкам 🤝/🔧 на старте этапа ---------- */
+  var CYR = { A: 'А', B: 'Б', V: 'В' };               // в сценарии варианты латиницей, в модели — кириллицей
+  var ORD = ['', 'Первое', 'Второе', 'Третье', 'Четвёртое', 'Пятое', 'Шестое', 'Седьмое', 'Восьмое', 'Девятое', 'Десятое', 'Одиннадцатое', 'Двенадцатое', 'Тринадцатое', 'Четырнадцатое', 'Пятнадцатое', 'Шестнадцатое', 'Семнадцатое', 'Восемнадцатое', 'Девятнадцатое', 'Двадцатое'];
+  var dKey = null, dVal = null;
+  function isRet2() {                                // сход на «Печорах» (4.5Б): не хранится флагом, считается по снимку 🔧 перед 4.5 — не «застревает» при прыжках по маршрутному листу
+    return flags.k45 === 'B' && !!snaps.s45 && (snaps.s45.car - 4) <= 3;
+  }
+  function alexTimes() {                             // время Алекса на этапах 0 (Ильмень), 1 (Рускеала), 2 (Печоры); null — этап ещё не стартовал или сход
+    var ch = {};
+    if (flags.k33) ch['3.3'] = CYR[flags.k33];
+    if (flags.k37) ch['3.7'] = CYR[flags.k37];
+    if (flags.k44) ch['4.4'] = CYR[flags.k44];
+    if (flags.k45) ch['4.5'] = CYR[flags.k45];
+    /* снимок для формулы времени — как в калибровке (rally_tables_calibration.py): Ильмень — перед 3.4; Рускеала — после эффекта выбора 3.7 (🤝),
+       до износа; Печоры — после выбора 4.4 (🔧 +2), до последствий 4.5. Разовая потеря 3.7-А смотрит на 🤝 до выбора (снимок s1). */
+    var KEY = ['s0', 's1b', 's45'];
+    return [0, 1, 2].map(function (s) {
+      var sn = snaps[KEY[s]]; if (!sn) return null;
+      if (s === 2 && isRet2()) return null;
+      return RallyModel.alexStageTime(s, sn.trust, sn.car, { choices: ch, flags: [], trust: (s === 1 && snaps.s1) ? snaps.s1.trust : sn.trust });
+    });
+  }
+  /* Общий зачёт после этапов 0..upto. Одинаковые очки — по лучшим результатам (как в регламенте): у кого выше места на этапах, тот впереди. */
+  function seasonRanked(upto, t) {
+    var per = {};
+    for (var s = 0; s <= upto; s++) {
+      var res = RallyModel.placeOnStage(s, t[s]);
+      res.standings.forEach(function (x) {
+        var r = per[x.n] || (per[x.n] = { n: x.n, label: x.label, pts: 0, places: [], isAlex: !!x.isAlex });
+        r.pts += x.points; r.places.push(x.place);
+      });
+    }
+    var arr = Object.keys(per).map(function (k) { return per[k]; });
+    arr.forEach(function (r) { r.places.sort(function (a, b) { return a - b; }); });
+    arr.sort(function (a, b) {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      for (var i = 0; i < Math.max(a.places.length, b.places.length); i++) {
+        var pa = a.places[i] == null ? 99 : a.places[i], pb = b.places[i] == null ? 99 : b.places[i];
+        if (pa !== pb) return pa - pb;
+      }
+      return a.n - b.n;
+    });
+    arr.forEach(function (r, i) { r.place = i + 1; });
+    return arr;
+  }
+  function derived() {                               // place0..place2, rank1, rank2, ret2 — по модели; null, пока данных нет
+    var key = JSON.stringify([snaps.s0 || 0, snaps.s1 || 0, snaps.s1b || 0, snaps.s45 || 0, flags.k33 || 0, flags.k37 || 0, flags.k44 || 0, flags.k45 || 0]);
+    if (key === dKey) return dVal;
+    var t = alexTimes(), out = { place0: null, place1: null, place2: null, rank1: null, rank2: null, ret2: snaps.s45 ? (isRet2() ? 1 : 0) : null, t: t };
+    var pl = [0, 1, 2].map(function (s) { return t[s] != null ? RallyModel.placeOnStage(s, t[s]) : null; });
+    if (pl[0]) out.place0 = pl[0].alex.place;
+    if (pl[1]) out.place1 = pl[1].alex.place;
+    if (pl[2]) out.place2 = pl[2].alex.place;
+    if (pl[0] && pl[1]) {                              // общий зачёт после двух этапов
+      var rk = seasonRanked(1, t);
+      for (var q = 0; q < rk.length; q++) if (rk[q].n === 4) { out.rank1 = q + 1; out.pts = rk[q].pts; }
+    }
+    if (pl[0] && pl[1] && snaps.s45) {                  // после трёх этапов (при сходе на третьем — без очков за него)
+      var rk2 = seasonRanked(2, t);
+      for (var q2 = 0; q2 < rk2.length; q2++) if (rk2[q2].n === 4) { out.rank2 = q2 + 1; out.pts2 = rk2[q2].pts; }
+    }
+    dKey = key; dVal = out; return out;
+  }
+  function numVal(k) {
+    if (k === 'trust' || k === 'car') return stats[k];
+    if (k === 'place0' || k === 'place1' || k === 'place2' || k === 'rank1' || k === 'rank2' || k === 'ret2') return derived()[k];
+    return null;
+  }
+  function tpl(text) {                                // {{ord0}}, {{ord1}} — порядковое числительное места
+    return text.replace(/\{\{ord([012])\}\}/g, function (m, d) { var p = derived()['place' + d]; return ORD[p] || (p + '-е'); });
+  }
+
+  /* ---------- условия показа ---------- */
+  function whenOk(w, fl) {                               // условие показа реплики или варианта выбора
+    if (!w) return true;
+    fl = fl || flags;
+    for (var k in w) {
+      var need = w[k], have = fl[k];
+      if (need && typeof need === 'object' && !Array.isArray(need)) {          // число: {gte, lte, eq}
+        var v = numVal(k);
+        if (v == null) return false;
+        if (need.gte !== undefined && v < need.gte) return false;
+        if (need.lte !== undefined && v > need.lte) return false;
+        if (need.eq !== undefined && v !== need.eq) return false;
+        continue;
+      }
+      if (Array.isArray(need)) { if (need.indexOf(have) < 0) return false; }
+      else if (need === true) { if (!have) return false; }
+      else if (need === false) { if (have) return false; }
+      else if (have !== need) return false;
+    }
+    return true;
+  }
+  function visible(n) { return whenOk(B[n].when); }
+  function nextVisible(n) { n++; while (n < B.length && !visible(n)) n++; return n; }
+  function lastVisible() { var n = B.length - 1; while (n > 0 && !visible(n)) n--; return n; }
+
+  /* ---------- сохранение (локально; Яндекс-сохранения подключим позже) ---------- */
+  var KEY = 'put.save.v2';   // ключ сохранения новой сборки: старые сохранения пролога не подхватываются
+  function save() { try { localStorage.setItem(KEY, JSON.stringify({ i: i, flags: flags })); } catch (e) {} }
+  function load() {
+    try { var v = JSON.parse(localStorage.getItem(KEY)); if (v && typeof v.i === 'number' && v.i < B.length) return v; } catch (e) {}
+    return null;
+  }
+  function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
+
+  /* ---------- шапка, индикаторы, фон ---------- */
+  function setHud(h) {
+    el.locPre.hidden = !h.pre; el.locPre.textContent = h.pre || '';
+    el.locName.textContent = h.name;
+    el.locKm.hidden = !h.tail; el.locKm.textContent = h.tail || '';
+  }
+  var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
+  function setInd(k, patch, animate, dir) {
+    var s = indState[k], t = el.ind[k];
+    var wasNone = s.word != null && S.noneWords.indexOf(s.word) >= 0;
+    if (patch.name) s.name = patch.name;
+    if (patch.word) s.word = patch.word;
+    t.name.textContent = s.name; t.word.textContent = s.word;
+    t.word.classList.toggle('zero', S.zeroWords.indexOf(s.word) >= 0);
+    t.word.classList.toggle('none', S.noneWords.indexOf(s.word) >= 0);
+    t.box.setAttribute('aria-label', s.name + ' ' + s.word);
+    clearTimeout(dirT[k]); t.word.removeAttribute('data-dir');
+    if (!animate || STATIC) { clearTimeout(revT[k]); t.box.classList.remove('reveal'); }
+    if (animate && !STATIC) {
+      if (dir) { t.word.setAttribute('data-dir', dir); dirT[k] = setTimeout(function () { t.word.removeAttribute('data-dir'); }, 2000); }
+      if (wasNone && patch.word && S.noneWords.indexOf(patch.word) < 0) {   // индикатор появился: подсветить всю плашку
+        t.box.classList.remove('reveal'); void t.box.offsetWidth; t.box.classList.add('reveal');
+        clearTimeout(revT[k]); revT[k] = setTimeout(function () { t.box.classList.remove('reveal'); }, 3200);
+      }
+      if (patch.word || dir) { t.word.classList.remove('flash'); void t.word.offsetWidth; t.word.classList.add('flash'); }
+    }
+  }
+  function wordFor(k, v) {
+    var w = S.bands[k].words;
+    for (var q = 0; q < w.length; q++) if (v >= w[q][0] && v <= w[q][1]) return w[q][2];
+    return w[w.length - 1][2];
+  }
+  function applyStats(map, animate) {                 // {car|trust: {set:N} | {add:±N}}
+    Object.keys(map).forEach(function (k) {
+      var e = map[k], old = stats[k], nv, add = e.add;
+      if (k === 'trust' && add > 0 && dampPending) { add -= 1; dampPending = false; }   // {наорал}: следующий прирост доверия на 1 меньше, один раз
+      nv = e.set !== undefined ? e.set : (old == null ? 0 : old) + add;
+      nv = Math.max(0, Math.min(10, nv));
+      stats[k] = nv;
+      var dir = (e.add !== undefined && old != null && nv !== old) ? (nv > old ? 'up' : 'down') : null;
+      setInd(k, { name: S.bands[k].name, word: wordFor(k, nv) }, animate, dir);
+      if (animate && dir) el.sr.textContent = S.bands[k].name + (dir === 'up' ? ' выросла. ' : ' упала. ') + wordFor(k, nv);
+    });
+  }
+
+  /* ---------- эффекты поверх фона (canvas #fx): по сценам ----------
+     bg11 (1.1)  — редкий медленный дождь, дым из выхлопа, свет фар
+     bg12 (1.2)  — быстро стекающие по лобовому стеклу капли
+     bg13 (1.3)  — дымок над машиной, моргающие аварийные фары, туман над землёй
+     bg14 (1.4)  — дрейфующий туман, морось, тёплый свет в тенте
+     bg15 (1.5)  — свет лампы «дышит», мерцает экран ноутбука, снег в окне
+     bg21 (2.1)  — пар из чайника;  bg22 (2.2) — медленный снег за окном кафе
+     bg23 (2.3)  — лампа над столом иногда моргает
+     bg24 (2.4)  — снежная пыль из-под колёс, позёмка, пар дыхания зрителей
+     bg25 (2.5)  — «запись с онборда» на экране ноутбука, снег в окне, голубой свет экрана
+     drive       — ощущение езды (см. DRIVE ниже): bg12 (1.2), bg33 (3.3), bg37 (3.7) — «подъезжающая» дорога из салона; bg24 (2.4) — фон плывёт за машиной */
+  var FX_BG = {
+    bg11: ['rain', 'puff:smoke', 'headlights'], bg12: ['glass'], bg13: ['puff:smoke13', 'lights13', 'mist'],
+    bg14: ['rain', 'mist', 'glow'], bg15: ['glow', 'screen15', 'snow'], bg21: ['puff:steam'], bg22: ['snow'], bg23: ['flicker'],
+    bg24: ['snow', 'puff:dust24', 'puff:breath24'], bg25: ['video25', 'glow', 'snow'],
+    bg33: ['puff:steam33', 'led33']
+  };
+  var RAIN = {
+    bg11: { n: .2, sp: 1, len: 1, hl: true, rings: true, col: [190, 205, 228] },
+    bg14: { n: .16, sp: .6, len: .7, hl: false, rings: false, col: [205, 212, 220], a: .8 }
+  };
+  var SNOW = {
+    bg22: { poly: [[0, 0], [1058, 0], [1088, 612], [380, 900], [0, 900]], n: 1, sc: 1, vx: 0 },
+    bg15: { poly: [[992, 18], [1224, 18], [1224, 222], [992, 222]], n: .22, sc: .6, vx: 0, local: true },
+    bg25: { poly: [[212, 48], [406, 48], [406, 212], [212, 212]], n: .22, sc: .6, vx: 0, local: true },
+    bg24: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.1, sc: 1, vx: -70, fast: 1, col: '170,185,205' }
+  };
+  var MIST = {
+    bg13: [{ y: 640, rx: 460, ry: 70, sp: 11, a: .075, col: [135, 155, 180], off: 0 }, { y: 560, rx: 520, ry: 60, sp: -7, a: .06, col: [120, 145, 175], off: 700 }, { y: 300, rx: 540, ry: 130, sp: 5, a: .05, col: [115, 140, 170], off: 300 }],
+    bg14: [{ y: 380, rx: 560, ry: 120, sp: 14, a: .10, col: [232, 232, 226], off: 0 }, { y: 640, rx: 620, ry: 90, sp: -9, a: .08, col: [225, 225, 220], off: 800 }, { y: 200, rx: 640, ry: 130, sp: 7, a: .07, col: [235, 235, 232], off: 400 }]
+  };
+  var GLOW = {
+    bg14: [{ x: 1130, y: 235, r: 230, col: [255, 214, 150], a: .07, sp: .5 }],
+    bg15: [{ x: 295, y: 185, r: 300, col: [255, 190, 100], a: .07, sp: .7 }, { x: 460, y: 290, r: 190, col: [120, 190, 255], a: .05, sp: 1.3 }],
+    bg25: [{ x: 850, y: 230, r: 430, col: [140, 190, 255], a: .05, sp: .9 }]
+  };
+  var fxC = document.getElementById('fx'), fxX = fxC && fxC.getContext ? fxC.getContext('2d') : null;
+  var fxOn = false, fxRaf = 0, fxW = 0, fxH = 0, fxK = 1, fxLast = 0, fxOff = 0, fxKey = null, fxModes = [], fxImg = null;
+  var IMG_W = 1600, IMG_H = 900;
+  var drops = [], rings = [], flakes = [], gdrops = [], gT = 0, puffSt = {}, fl = { next: 2, seq: [], t0: 0, lvl: 0 }, fl2 = { next: 1.5, seq: [], lvl: .55 };
+  var rainCfg = RAIN.bg11, snowCfg = SNOW.bg22;
+  var PUFF = {
+    steam:   { em: [[171, 466]], dx: -78, dy: -340, pw: .85, life: [4.6, 6.8], spawn: [.16, .26], r0: [9, 16], grow: 78, al: [.10, .17], col: [238, 230, 218], wob: [4, 38] },
+    smoke:   { em: [[1080, 474]], dx: 150, dy: -230, pw: .8, life: [4.2, 6.2], spawn: [.30, .5], r0: [9, 15], grow: 70, al: [.10, .17], col: [190, 190, 198], wob: [3, 26] },
+    smoke13: { em: [[585, 392]], dx: -60, dy: -250, pw: .85, life: [4.5, 6.5], spawn: [.28, .45], r0: [8, 13], grow: 60, al: [.08, .14], col: [160, 172, 190], wob: [3, 24] },
+    dust24:  { em: [[470, 468], [610, 502]], dx: -230, dy: -95, pw: .8, life: [1.8, 3.0], spawn: [.10, .18], r0: [14, 24], grow: 70, al: [.16, .26], col: [244, 247, 252], wob: [2, 14] },
+    breath24: { em: [[1213, 303], [1276, 298], [1308, 294], [1371, 302], [1438, 297], [1473, 300]], dx: -18, dy: -34, pw: .9, life: [1.3, 2.0], spawn: [.35, .6], r0: [3, 5], grow: 11, al: [.18, .3], col: [250, 252, 255], wob: [1, 4] },
+    steam33: { em: [[938, 515]], dx: -8, dy: -105, pw: .9, life: [2.6, 3.8], spawn: [.28, .45], r0: [4, 7], grow: 24, al: [.10, .17], col: [236, 236, 240], wob: [2, 10] }
+  };
+  var GLASS12 = [[125, 150], [300, 48], [1300, 48], [1475, 150], [1385, 585], [1225, 622], [260, 622]];
+  var SCREEN25 = [[691, 163], [1010, 156], [998, 334], [688, 324]], VP25 = [850, 262];
+  var SCREEN15 = [[380, 232], [524, 220], [540, 320], [396, 340]];
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function fxMap(key) {                              // картинка bg-cover: пересчёт координат картинки в кадр
+    var d = S.bgs[key || fxKey || 'bg11'], p = (d.pos || '50% 50%').split(' ');
+    var s = Math.max(fxW / IMG_W, fxH / IMG_H), w = IMG_W * s, h = IMG_H * s;
+    return { s: s, x: (fxW - w) * parseFloat(p[0]) / 100, y: (fxH - h) * parseFloat(p[1]) / 100 };
+  }
+  function lit(m, x, y) {                            // насколько точка освещена фарами (bg11), 0..1
+    var ix = (x - m.x) / m.s, iy = (y - m.y) / m.s;
+    function g(cx, cy, rx, ry) { var a = (ix - cx) / rx, b = (iy - cy) / ry; return Math.exp(-(a * a + b * b)); }
+    return Math.min(1, g(220, 560, 330, 190) + g(560, 560, 260, 150) + g(600, 400, 260, 120));
+  }
+  function clipPoly(x, m, pts) {
+    x.beginPath();
+    pts.forEach(function (p, i) { var px = m.x + p[0] * m.s, py = m.y + p[1] * m.s; if (i) x.lineTo(px, py); else x.moveTo(px, py); });
+    x.closePath(); x.clip();
+  }
+  function newDrop(any) {
+    var near = Math.random() < .3, sc = fxH / 900, c = rainCfg;
+    return {
+      x: Math.random() * (fxW + 200) - 40, y: any ? Math.random() * fxH : -40 * Math.random(),
+      len: (near ? 24 + Math.random() * 22 : 11 + Math.random() * 12) * sc * c.len,
+      v: (near ? 780 + Math.random() * 260 : 540 + Math.random() * 220) * sc * c.sp,
+      a: (near ? .32 + Math.random() * .2 : .16 + Math.random() * .16) * (c.a || 1), w: near ? 1.5 : 1
+    };
+  }
+  function newFlake(any) {
+    var near = Math.random() < .3, sc = fxH / 900, c = snowCfg, k = c.sc;
+    var s = { x: Math.random() * fxW, y: any ? Math.random() * fxH : -10, r: (near ? rnd(1.8, 3) : rnd(.8, 1.7)) * Math.max(.7, sc) * k,
+      vy: (near ? rnd(34, 58) : rnd(18, 34)) * sc * (c.fast ? 1.4 : 1), ph: Math.random() * 6.28, sw: rnd(.4, 1), amp: rnd(8, 26) * sc * k, a: near ? rnd(.6, .9) : rnd(.35, .65) };
+    if (c.vx) { s.vx = c.vx * sc * rnd(.6, 1.3); if (!any) { s.x = fxW + 10 * Math.random(); s.y = Math.random() * fxH; } }
+    return s;
+  }
+  function fxInit() {
+    var base = Math.min(260, Math.max(90, fxW * fxH / 5200));
+    drops = []; rings = []; flakes = []; gdrops = []; gT = 0;
+    rainCfg = RAIN[fxKey] || RAIN.bg11; snowCfg = SNOW[fxKey] || SNOW.bg22;
+    if (fxModes.indexOf('rain') >= 0) for (var q = 0, n = Math.round(base * rainCfg.n); q < n; q++) drops.push(newDrop(true));
+    if (fxModes.indexOf('snow') >= 0) for (var k = 0, nf = Math.round(Math.min(220, Math.max(70, fxW * fxH / 7000)) * snowCfg.n); k < nf; k++) flakes.push(newFlake(true));
+    puffSt = {};
+    fxModes.forEach(function (md) {
+      if (md.indexOf('puff:') !== 0) return;
+      var nm = md.slice(5), c = PUFF[nm]; if (!c) return;
+      var st = puffSt[nm] = { list: [], t: 0 };
+      for (var i = 0; i < 26; i++) st.list.push(newPuff(c, Math.random() * c.life[1]));
+    });
+    fl = { next: 2.5, seq: [], t0: 0, lvl: 0 }; fl2 = { next: 1.2, seq: [], lvl: .55 };
+    var Dv = DRIVE[fxKey]; if (Dv) { dImg(S.bgs[fxKey].src); if (Dv.plate) dImg(Dv.plate); if (Dv.car) dImg(Dv.car.src); }
+    var src = S.bgs[fxKey] && S.bgs[fxKey].src;
+    if (fxModes.indexOf('video25') >= 0 && src && (!fxImg || fxImg._s !== src)) { fxImg = new Image(); fxImg._s = src; fxImg.src = src; }
+  }
+  function fxSize() {
+    if (!fxC) return;
+    var r = fxC.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    fxW = Math.max(1, Math.round(r.width)); fxH = Math.max(1, Math.round(r.height)); fxK = dpr;
+    fxC.width = Math.round(fxW * dpr); fxC.height = Math.round(fxH * dpr);
+    if (!dc) { dc = document.createElement('canvas'); dx = dc.getContext('2d'); }
+    dc.width = fxC.width; dc.height = fxC.height;
+    if (!dc2) { dc2 = document.createElement('canvas'); dx2 = dc2.getContext('2d'); }
+    dc2.width = fxC.width; dc2.height = fxC.height;
+    fxInit();
+  }
+
+  /* дождь / морось */
+  function rainFx(x, m, tt, dt) {
+    var wind = -.16, c = rainCfg, cr = c.col;
+    x.lineCap = 'round';
+    for (var q = 0; q < drops.length; q++) {
+      var d = drops[q];
+      d.y += d.v * dt; d.x += d.v * wind * dt;
+      if (d.y > fxH + 20) {
+        if (c.rings && d.y > fxH * .58 && Math.random() < .5 && rings.length < 40) rings.push({ x: d.x, y: d.y, t: 0, l: lit(m, d.x, fxH * .8) });
+        drops[q] = newDrop(false); continue;
+      }
+      var L = c.hl ? lit(m, d.x, d.y) : 0, a = d.a * (1 + L * 1.1);
+      x.strokeStyle = 'rgba(' + ((cr[0] + 60 * L) | 0) + ',' + ((cr[1] + 30 * L) | 0) + ',' + ((cr[2] - 60 * L) | 0) + ',' + Math.min(.8, a).toFixed(3) + ')';
+      x.lineWidth = d.w;
+      x.beginPath(); x.moveTo(d.x, d.y); x.lineTo(d.x - d.len * wind, d.y - d.len); x.stroke();
+    }
+    for (var k = rings.length - 1; k >= 0; k--) {
+      var rg = rings[k]; rg.t += dt;
+      if (rg.t > .4) { rings.splice(k, 1); continue; }
+      var p = rg.t / .4, rr = (2 + 8 * p) * (fxH / 900);
+      x.strokeStyle = 'rgba(' + ((210 + 40 * rg.l) | 0) + ',' + ((215 + 10 * rg.l) | 0) + ',' + ((225 - 50 * rg.l) | 0) + ',' + ((1 - p) * (.28 + .3 * rg.l)).toFixed(3) + ')';
+      x.lineWidth = 1; x.beginPath(); x.ellipse(rg.x, rg.y, rr, rr * .38, 0, 0, 6.2832); x.stroke();
+    }
+  }
+  function headlightsFx(x, m, tt) {                   // bg11: свет фар «дышит», туман в луче
+    var br = .55 + .08 * Math.sin(tt * 1.7) + .04 * Math.sin(tt * 4.3 + 1);
+    x.globalCompositeOperation = 'lighter';
+    [[395, 388, 90], [705, 402, 120]].forEach(function (h) {
+      var cx = m.x + h[0] * m.s, cy = m.y + h[1] * m.s, rad = h[2] * m.s;
+      var gr = x.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      gr.addColorStop(0, 'rgba(255,225,150,' + (.22 * br).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(255,200,110,0)');
+      x.fillStyle = gr; x.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+    });
+    var fx2 = m.x + (230 + 40 * Math.sin(tt * .35)) * m.s, fy2 = m.y + 590 * m.s, fr = 380 * m.s;
+    var fg = x.createRadialGradient(fx2, fy2, 0, fx2, fy2, fr);
+    fg.addColorStop(0, 'rgba(255,215,140,' + (.05 + .02 * Math.sin(tt * .9)).toFixed(3) + ')'); fg.addColorStop(1, 'rgba(255,215,140,0)');
+    x.fillStyle = fg; x.fillRect(fx2 - fr, fy2 - fr, fr * 2, fr * 2);
+    x.globalCompositeOperation = 'source-over';
+  }
+
+  /* клубы пара / дыма / пыли: поднимаются из точек-источников и расплываются */
+  function newPuff(c, age0) {
+    var e = c.em[(Math.random() * c.em.length) | 0];
+    return { age: age0 || 0, life: rnd(c.life[0], c.life[1]), ph: Math.random() * 6.28, sw: rnd(.8, 1.7), r0: rnd(c.r0[0], c.r0[1]), a: rnd(c.al[0], c.al[1]), ex: e[0] + rnd(-3, 3), ey: e[1] };
+  }
+  function puffFx(x, m, tt, dt, name) {
+    var c = PUFF[name], st = puffSt[name]; if (!st) return;
+    st.t -= dt;
+    if (st.t <= 0) { st.list.push(newPuff(c, 0)); st.t = rnd(c.spawn[0], c.spawn[1]); }
+    for (var q = st.list.length - 1; q >= 0; q--) {
+      var p = st.list[q]; p.age += dt;
+      var u = p.age / p.life;
+      if (u >= 1) { st.list.splice(q, 1); continue; }
+      var wob = Math.sin(p.age * p.sw * 2 + p.ph) * (c.wob[0] + (c.wob[1] - c.wob[0]) * u) + Math.sin(tt * .45 + p.ph) * 14 * u * (c.wob[1] > 10 ? 1 : .2);
+      var ix = p.ex + c.dx * Math.pow(u, c.pw) + wob, iy = p.ey + c.dy * u;
+      var rad = (p.r0 + c.grow * Math.pow(u, .8)) * m.s;
+      var al = p.a * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.15)), .9) * (u < .08 ? u / .08 : 1);
+      var cx = m.x + ix * m.s, cy = m.y + iy * m.s, col = c.col.join(',');
+      var stx = c.st || 1;                             // st > 1 — клуб вытянут по горизонтали (снежный шлейф за машиной)
+      x.save(); x.translate(cx, cy); x.scale(stx, 1);
+      var g = x.createRadialGradient(0, 0, 0, 0, 0, rad);
+      g.addColorStop(0, 'rgba(' + col + ',' + al.toFixed(3) + ')'); g.addColorStop(.55, 'rgba(' + col + ',' + (al * .55).toFixed(3) + ')'); g.addColorStop(1, 'rgba(' + col + ',0)');
+      x.fillStyle = g; x.fillRect(-rad, -rad, rad * 2, rad * 2); x.restore();
+    }
+  }
+
+  /* туман: широкие мягкие полосы медленно дрейфуют по кадру */
+  function mistFx(x, m, tt) {
+    (MIST[fxKey] || []).forEach(function (b) {
+      var span = IMG_W + b.rx * 2, px = (((tt * b.sp + b.off) % span) + span) % span - b.rx;
+      var cx = m.x + px * m.s, cy = m.y + b.y * m.s, rx = b.rx * m.s, ry = b.ry * m.s, br = 1 + .25 * Math.sin(tt * .3 + b.off);
+      x.save(); x.translate(cx, cy); x.scale(1, ry / rx);
+      var g = x.createRadialGradient(0, 0, 0, 0, 0, rx), c = b.col.join(',');
+      g.addColorStop(0, 'rgba(' + c + ',' + (b.a * br).toFixed(3) + ')'); g.addColorStop(.6, 'rgba(' + c + ',' + (b.a * br * .5).toFixed(3) + ')'); g.addColorStop(1, 'rgba(' + c + ',0)');
+      x.fillStyle = g; x.fillRect(-rx, -rx, rx * 2, rx * 2); x.restore();
+    });
+  }
+  /* мягкое «дыхание» источников света */
+  function glowFx(x, m, tt) {
+    x.globalCompositeOperation = 'lighter';
+    (GLOW[fxKey] || []).forEach(function (g) {
+      var cx = m.x + g.x * m.s, cy = m.y + g.y * m.s, r = g.r * m.s, a = g.a * (1 + .35 * Math.sin(tt * g.sp) + .15 * Math.sin(tt * g.sp * 2.7 + 1)), c = g.col.join(',');
+      var gr = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      gr.addColorStop(0, 'rgba(' + c + ',' + a.toFixed(3) + ')'); gr.addColorStop(1, 'rgba(' + c + ',0)');
+      x.fillStyle = gr; x.fillRect(cx - r, cy - r, r * 2, r * 2);
+    });
+    x.globalCompositeOperation = 'source-over';
+  }
+
+  /* снег: за окном (clip по стеклу) или позёмка на весь кадр */
+  function snowFx(x, m, tt, dt) {
+    x.save(); clipPoly(x, m, snowCfg.poly);
+    var box = null;
+    if (snowCfg.local) {                              // маленькое окно: снежинки только в его границах
+      var xs = snowCfg.poly.map(function (p) { return m.x + p[0] * m.s; }), ys = snowCfg.poly.map(function (p) { return m.y + p[1] * m.s; });
+      box = { x0: Math.min.apply(0, xs), x1: Math.max.apply(0, xs), y0: Math.min.apply(0, ys), y1: Math.max.apply(0, ys) };
+    }
+    for (var q = 0; q < flakes.length; q++) {
+      var f = flakes[q];
+      if (box && !f.bx) { f.x = box.x0 + Math.random() * (box.x1 - box.x0); f.y = box.y0 + Math.random() * (box.y1 - box.y0); f.bx = 1; }
+      f.y += f.vy * dt; if (f.vx) f.x += f.vx * dt;
+      var fxp = f.x + Math.sin(tt * f.sw + f.ph) * f.amp;
+      var out = box ? f.y > box.y1 + 4 : (f.y > fxH + 8 || (f.vx && f.x < -10));
+      if (out) {
+        var nf = newFlake(false);
+        if (box) { nf.x = box.x0 + Math.random() * (box.x1 - box.x0); nf.y = box.y0 - 2; nf.bx = 1; }
+        flakes[q] = nf; continue;
+      }
+      if (snowCfg.streak && f.vx) {                   // летящий снег: короткие росчерки по ходу ветра
+        x.strokeStyle = 'rgba(' + snowCfg.col + ',' + (f.a * .6).toFixed(3) + ')'; x.lineWidth = Math.max(1, f.r * .9); x.lineCap = 'round';
+        x.beginPath(); x.moveTo(fxp, f.y); x.lineTo(fxp - f.vx * .05, f.y - f.vy * .05); x.stroke();
+      } else if (f.r > 1.7) {
+        var g = x.createRadialGradient(fxp, f.y, 0, fxp, f.y, f.r * 1.8);
+        g.addColorStop(0, 'rgba(' + (snowCfg.col || '255,255,255') + ',' + f.a.toFixed(3) + ')'); g.addColorStop(1, 'rgba(' + (snowCfg.col || '255,255,255') + ',0)');
+        x.fillStyle = g; x.fillRect(fxp - f.r * 2, f.y - f.r * 2, f.r * 4, f.r * 4);
+      } else {
+        x.fillStyle = 'rgba(' + (snowCfg.col || '255,255,255') + ',' + f.a.toFixed(3) + ')'; x.beginPath(); x.arc(fxp, f.y, f.r, 0, 6.2832); x.fill();
+      }
+    }
+    x.restore();
+  }
+
+  /* быстро стекающие по лобовому стеклу капли (bg12) */
+  function glassFx(x, m, tt, dt) {
+    gT -= dt;
+    if (gT <= 0 && gdrops.length < 10) {
+      gdrops.push({ x: rnd(200, 1400), y: rnd(70, 430), r: rnd(3, 6.5), v: rnd(260, 520), ph: Math.random() * 6.28, trail: [], hold: rnd(.05, .5) });
+      gT = rnd(.25, .7);
+    }
+    x.save(); clipPoly(x, m, GLASS12); x.lineCap = 'round';
+    for (var q = gdrops.length - 1; q >= 0; q--) {
+      var d = gdrops[q];
+      if (d.hold > 0) d.hold -= dt;
+      else {
+        var sp = d.v * (.55 + .75 * Math.max(0, Math.sin(tt * 3 + d.ph)) + .2);      // рывками: то быстрее, то медленнее
+        d.y += sp * dt; d.x += Math.sin(tt * 2.2 + d.ph) * 14 * dt;
+        d.trail.push([d.x, d.y]); if (d.trail.length > 18) d.trail.shift();
+      }
+      if (d.y > 618) { gdrops.splice(q, 1); continue; }
+      var tl = d.trail;
+      for (var k = 1; k < tl.length; k++) {
+        x.strokeStyle = 'rgba(255,222,170,' + (.22 * k / tl.length).toFixed(3) + ')'; x.lineWidth = Math.max(1, d.r * .55 * k / tl.length) * m.s;
+        x.beginPath(); x.moveTo(m.x + tl[k - 1][0] * m.s, m.y + tl[k - 1][1] * m.s); x.lineTo(m.x + tl[k][0] * m.s, m.y + tl[k][1] * m.s); x.stroke();
+      }
+      var cx = m.x + d.x * m.s, cy = m.y + d.y * m.s, rr = d.r * m.s;
+      x.fillStyle = 'rgba(0,0,0,.28)'; x.beginPath(); x.ellipse(cx + rr * .15, cy + rr * .25, rr, rr * 1.25, 0, 0, 6.2832); x.fill();
+      var g = x.createRadialGradient(cx - rr * .3, cy - rr * .4, 0, cx, cy, rr * 1.2);
+      g.addColorStop(0, 'rgba(255,240,205,.95)'); g.addColorStop(.6, 'rgba(255,205,130,.6)'); g.addColorStop(1, 'rgba(255,190,100,.15)');
+      x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rr, rr * 1.2, 0, 0, 6.2832); x.fill();
+    }
+    x.restore();
+  }
+
+  /* лампа над столом иногда моргает (bg23): затемняем лампу и освещённую область */
+  function flickerFx(x, m, tt) {
+    if (!fl.seq.length && tt > fl.next) {
+      var n = 2 + (Math.random() * 3 | 0), s = [];
+      for (var i = 0; i < n; i++) { s.push([rnd(.04, .09), rnd(.55, .95)]); s.push([rnd(.03, .08), rnd(0, .25)]); }
+      s.push([rnd(.1, .22), rnd(.3, .6)]); fl.seq = s; fl.t0 = tt; fl.cur = 0; fl.cs = tt;
+    }
+    var lvl = 0;
+    if (fl.seq.length) {
+      var step = fl.seq[fl.cur];
+      if (tt - fl.cs > step[0]) { fl.cur++; fl.cs = tt; if (fl.cur >= fl.seq.length) { fl.seq = []; fl.next = tt + rnd(4, 9); } }
+      if (fl.seq.length) lvl = fl.seq[fl.cur][1];
+    }
+    fl.lvl += (lvl - fl.lvl) * .6;
+    var L = fl.lvl; if (L < .01) return;
+    function rad(cx, cy, r, a, rx, ry) {
+      var X = m.x + cx * m.s, Y = m.y + cy * m.s, R = r * m.s;
+      x.save(); x.translate(X, Y); x.scale(rx || 1, ry || 1);
+      var g = x.createRadialGradient(0, 0, 0, 0, 0, R);
+      g.addColorStop(0, 'rgba(8,6,5,' + (a * L).toFixed(3) + ')'); g.addColorStop(.6, 'rgba(8,6,5,' + (a * L * .55).toFixed(3) + ')'); g.addColorStop(1, 'rgba(8,6,5,0)');
+      x.fillStyle = g; x.fillRect(-R, -R, R * 2, R * 2); x.restore();
+    }
+    rad(770, 330, 640, .50);
+    rad(765, 100, 150, .78);
+    rad(930, 124, 560, .5, 1, .05);
+  }
+
+  /* bg13: аварийные фары машины мигают, как при плохом контакте */
+  function lights13Fx(x, m, tt) {
+    if (!fl2.seq.length && tt > fl2.next) {
+      var s = [], n = 3 + (Math.random() * 4 | 0);
+      for (var i = 0; i < n; i++) s.push([rnd(.04, .12), Math.random() < .5 ? rnd(0, .25) : rnd(.8, 1.1)]);
+      s.push([rnd(.1, .3), .55]); fl2.seq = s; fl2.cur = 0; fl2.cs = tt;
+    }
+    var tgt = .55 + .06 * Math.sin(tt * 1.3);
+    if (fl2.seq.length) {
+      if (tt - fl2.cs > fl2.seq[fl2.cur][0]) { fl2.cur++; fl2.cs = tt; if (fl2.cur >= fl2.seq.length) { fl2.seq = []; fl2.next = tt + rnd(1.5, 4.5); } }
+      if (fl2.seq.length) tgt = fl2.seq[fl2.cur][1];
+    }
+    fl2.lvl += (tgt - fl2.lvl) * .7;
+    var L = fl2.lvl;
+    [[600, 498, 52], [752, 517, 56]].forEach(function (h) {
+      var cx = m.x + h[0] * m.s, cy = m.y + h[1] * m.s, r = h[2] * m.s;
+      if (L < .5) {                                                       // гаснет: затемняем нарисованный свет
+        var d = (.5 - L) / .5, g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+        g.addColorStop(0, 'rgba(10,12,18,' + (.78 * d).toFixed(3) + ')'); g.addColorStop(1, 'rgba(10,12,18,0)');
+        x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2);
+      } else {                                                            // ярче — подсвечиваем
+        var a = (L - .5) * .9, g2 = x.createRadialGradient(cx, cy, 0, cx, cy, r * 2.2);
+        x.globalCompositeOperation = 'lighter';
+        g2.addColorStop(0, 'rgba(255,200,120,' + a.toFixed(3) + ')'); g2.addColorStop(1, 'rgba(255,180,90,0)');
+        x.fillStyle = g2; x.fillRect(cx - r * 2.2, cy - r * 2.2, r * 4.4, r * 4.4); x.globalCompositeOperation = 'source-over';
+      }
+    });
+  }
+
+  /* bg15: экран ноутбука мерцает, мигает курсор */
+  function screen15Fx(x, m, tt) {
+    x.save(); clipPoly(x, m, SCREEN15);
+    x.globalCompositeOperation = 'lighter';
+    var a = .05 + .03 * Math.sin(tt * 7) * Math.sin(tt * 1.3) + (Math.sin(tt * 23) > .9 ? .05 : 0);
+    var sy = ((tt * 40) % 160) - 20;                                      // тонкая полоса развёртки ползёт вверх
+    x.fillStyle = 'rgba(120,200,255,' + a.toFixed(3) + ')'; x.fillRect(m.x + 370 * m.s, m.y + 215 * m.s, 180 * m.s, 140 * m.s);
+    x.fillStyle = 'rgba(160,220,255,.10)'; x.fillRect(m.x + 370 * m.s, m.y + (340 - sy) * m.s, 180 * m.s, 5 * m.s);
+    x.restore();
+    if (Math.floor(tt * 1.6) % 2 === 0) { x.fillStyle = 'rgba(180,235,255,.8)'; x.fillRect(m.x + 402 * m.s, m.y + 318 * m.s, 2.5 * m.s, 9 * m.s); }
+  }
+
+  /* bg25: «запись с онборда» — картинка на экране медленно «едет» навстречу (бесконечный зум от точки схода) */
+  function video25Fx(x, m, tt) {
+    var img = fxImg; if (!img || !img.complete || !img.naturalWidth) return;
+    x.save(); clipPoly(x, m, SCREEN25);
+    var P = 3.4, vx = m.x + VP25[0] * m.s, vy = m.y + VP25[1] * m.s;
+    for (var k = 0; k < 2; k++) {
+      var ph = ((tt / P) + k * .5) % 1, sc = 1 + .26 * ph, w = Math.pow(Math.sin(Math.PI * ph), 2);
+      x.globalAlpha = w;
+      x.drawImage(img, vx - VP25[0] * m.s * sc, vy - VP25[1] * m.s * sc, IMG_W * m.s * sc, IMG_H * m.s * sc);
+    }
+    x.globalAlpha = 1; x.restore();
+    x.save(); clipPoly(x, m, SCREEN25); x.globalCompositeOperation = 'lighter';       // лёгкий дрожащий блик «видео»
+    x.fillStyle = 'rgba(150,200,255,' + (.03 + .02 * Math.sin(tt * 11)).toFixed(3) + ')'; x.fillRect(m.x + 680 * m.s, m.y + 150 * m.s, 340 * m.s, 180 * m.s);
+    x.restore();
+  }
+
+  /* ---------- «езда» ----------
+     zoom — вид из машины: дорога «подъезжает» от точки схода. Три наложенных слоя с плавной сменой масштаба дают радиальное
+            размытие в движении; поверх — лёгкая тряска и редкие толчки на неровностях. Рисуем только «мир» внутри окон:
+            салон, приборка, дворники и края стекла остаются неподвижными.
+     pan  — машина снаружи: фон без машины (assets/bgNN_plate.webp) плывёт полосами с разной скоростью (параллакс),
+            вырезанная машина (assets/bgNN_car.webp) покачивается на ухабах и чуть «скользит» в повороте. */
+  var GLASS_DRV12 = [[135, 112], [300, 42], [1300, 42], [1468, 112], [1392, 586], [1000, 584], [700, 580], [450, 582], [262, 592]];
+  var PATCH33 = [[618, 262], [626, 298], [655, 318], [700, 330], [750, 338], [870, 338], [910, 331], [962, 316], [990, 298], [1003, 275], [1030, 258], [1042, 230], [1012, 205], [950, 198], [885, 199], [740, 199], [692, 205], [650, 214], [626, 238]];
+  var DRIVE = {};                                   // «езда» отключена: эффект движения не прижился (механизм оставлен на случай отдельных кадров)
+  var dImgs = {}, dc = null, dx = null, dc2 = null, dx2 = null, drv = { key: null, t0: null }, drvOut = null, moveOn = false, moveT = -9, bump = { t: -9, a: 0, next: 1.2 };
+  function dImg(src) { var i = dImgs[src]; if (!i) { i = dImgs[src] = new Image(); i.src = src; } return i.complete && i.naturalWidth ? i : null; }
+  function bumpAt(tt, amp) {                          // толчок на неровности: короткое затухающее колебание
+    if (tt > bump.next) { bump.t = tt; bump.a = (Math.random() < .5 ? -1 : 1) * (.5 + Math.random() * .8); bump.next = tt + 1.4 + Math.random() * 3.2; }
+    var d = tt - bump.t; return bump.a * amp * Math.exp(-5 * d) * Math.cos(16 * d);
+  }
+  function driveFx(x, m, tt, key, fade) {
+    var D = DRIVE[key], img = dImg(S.bgs[key].src); if (!D || !img || !dx) return false;
+    var g = dx, k;
+    g.setTransform(fxK, 0, 0, fxK, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.clearRect(0, 0, fxW, fxH);
+    if (D.type === 'zoom') {
+      var sx = (Math.sin(tt * 13.1) + .6 * Math.sin(tt * 21.7 + 1.3)) * .5 * D.shake * m.s;
+      var sy = ((Math.sin(tt * 11.3 + .7) + .6 * Math.sin(tt * 19.1)) * .5 * D.shake + bumpAt(tt, D.bump)) * m.s;
+      D.zones.forEach(function (Z) {
+        g.save();
+        if (Z.clip) {
+          g.beginPath();
+          Z.clip.forEach(function (poly) { poly.forEach(function (p, i) { var px = m.x + p[0] * m.s, py = m.y + p[1] * m.s; if (i) g.lineTo(px, py); else g.moveTo(px, py); }); g.closePath(); });
+          g.clip();
+        }
+        var src = D.plate ? (dImg(D.plate) || img) : img;
+        var vx = m.x + Z.vp[0] * m.s + sx, vy = m.y + Z.vp[1] * m.s + sy, ws = [], scs = [], tot = 0, ph, w;
+        for (k = 0; k < Z.n; k++) { ph = (tt / Z.per + k / Z.n) % 1; scs.push(1.03 * Math.pow(Z.z, ph)); w = Math.sin(Math.PI * ph); ws.push(w * w + .002); }
+        for (k = 0; k < Z.n; k++) {                                   // нормированная смена слоёв: сумма весов всегда 1, швов нет
+          tot += ws[k]; g.globalAlpha = k ? ws[k] / tot : 1;
+          g.drawImage(src, vx - Z.vp[0] * m.s * scs[k], vy - Z.vp[1] * m.s * scs[k], IMG_W * m.s * scs[k], IMG_H * m.s * scs[k]);
+        }
+        g.restore();
+      });
+      if (D.car && D.type === 'zoom') {                               // машина едет «на нас»: сама почти неподвижна, покачивается на кочках
+        var Cz = D.car, cimg = dImg(Cz.src);
+        if (cimg) {
+          var zb = Cz.bob * (.55 * Math.sin(tt * 10.5) + .45 * Math.sin(tt * 6.3 + 1.1)) + bumpAt(tt, 2.6), zr = Cz.rot * Math.sin(tt * 7.7 + .4) + .004 * Math.sin(tt * .9);
+          var qx = Cz.w * Cz.px, qy = Cz.h * Cz.py;
+          g.save(); g.translate(m.x + (Cz.x + qx + 3 * Math.sin(tt * .8)) * m.s, m.y + (Cz.y + qy + zb) * m.s); g.rotate(zr);
+          g.drawImage(cimg, -qx * m.s, -qy * m.s, Cz.w * m.s, Cz.h * m.s); g.restore();
+        }
+      }
+      if (D.fade) {                                                   // у нижнего края окна «мир» растворяется — там неподвижные дворники и свет фар
+        g.globalCompositeOperation = 'destination-out';
+        var gr = g.createLinearGradient(0, m.y + D.fade[0] * m.s, 0, m.y + D.fade[1] * m.s);
+        gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
+        g.fillStyle = gr; g.fillRect(0, 0, fxW, fxH); g.globalCompositeOperation = 'source-over';
+      }
+    } else {
+      var plate = dImg(D.plate), car = dImg(D.car.src); if (!plate || !car) return false;
+      if (!D._mir || D._mirSrc !== plate) {                           // зеркальная лента 2×ширина: фон можно крутить по кругу без шва
+        var mc = document.createElement('canvas'); mc.width = IMG_W * 2; mc.height = IMG_H;
+        var mg = mc.getContext('2d'); mg.drawImage(plate, 0, 0); mg.translate(IMG_W * 2, 0); mg.scale(-1, 1); mg.drawImage(plate, 0, 0);
+        D._mir = mc; D._mirSrc = plate;
+      }
+      var OV = 80;                                                    // на стыках полосы скорости плавно перетекают друг в друга (без «разрыва» веток и деревьев)
+      function band(gc, b, ya, yb) {
+        var off = (tt * b[2]) % (IMG_W * 2), w1 = Math.min(IMG_W, IMG_W * 2 - off), hh = yb - ya, dy = m.y + ya * m.s, dh = hh * m.s;
+        gc.drawImage(D._mir, off, ya, w1, hh, m.x, dy, w1 * m.s, dh);
+        if (w1 < IMG_W) gc.drawImage(D._mir, 0, ya, IMG_W - w1, hh, m.x + w1 * m.s, dy, (IMG_W - w1) * m.s, dh);
+      }
+      D.bands.forEach(function (b, bi) {
+        if (!bi) { band(g, b, b[0], b[1] + 1); return; }
+        var t2 = dx2; t2.setTransform(fxK, 0, 0, fxK, 0, 0); t2.globalCompositeOperation = 'source-over'; t2.globalAlpha = 1; t2.clearRect(0, 0, fxW, fxH);
+        band(t2, b, b[0] - OV, b[1] + 1);
+        t2.globalCompositeOperation = 'destination-in';
+        var gr = t2.createLinearGradient(0, m.y + (b[0] - OV) * m.s, 0, m.y + b[0] * m.s);
+        gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
+        t2.fillStyle = gr; t2.fillRect(0, 0, fxW, fxH); t2.globalCompositeOperation = 'source-over';
+        g.drawImage(dc2, 0, 0, fxW, fxH);
+      });
+      var C = D.car, bob = 1.5 * (.55 * Math.sin(tt * 10.5) + .45 * Math.sin(tt * 6.3 + 1.1)) + bumpAt(tt, 3.5);
+      var slide = 5 * Math.sin(tt * .8), rot = .0075 * Math.sin(tt * .9 + .6) + .0035 * Math.sin(tt * 7.7 + .4);
+      var px0 = C.w * .52, py0 = C.h * .8;
+      g.save(); g.translate(m.x + (C.x + px0 + slide) * m.s, m.y + (C.y + py0 + bob) * m.s); g.rotate(rot);
+      g.drawImage(car, -px0 * m.s, -py0 * m.s, C.w * m.s, C.h * m.s); g.restore();
+    }
+    x.globalAlpha = Math.max(0, Math.min(1, fade)); x.drawImage(dc, 0, 0, fxW, fxH); x.globalAlpha = 1;
+    return true;
+  }
+  /* bg33: красный огонёк видеорегистратора мигает */
+  function led33Fx(x, m, tt) {
+    var on = (tt % 1.6) < .22 ? 1 : .18, cx = m.x + 712 * m.s, cy = m.y + 119 * m.s, r = 16 * m.s;
+    x.globalCompositeOperation = 'lighter';
+    var g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, 'rgba(255,70,50,' + (.5 * on).toFixed(3) + ')'); g.addColorStop(1, 'rgba(255,70,50,0)');
+    x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2); x.globalCompositeOperation = 'source-over';
+  }
+
+  function fxFrame(t) {
+    fxRaf = requestAnimationFrame(fxFrame);
+    var dt = Math.min(.05, (t - (fxLast || t)) / 1000); fxLast = t;
+    var x = fxX, m = fxMap(fxKey), tt = t / 1000, md = fxModes;
+    x.setTransform(fxK, 0, 0, fxK, 0, 0); x.clearRect(0, 0, fxW, fxH);
+    if (drvOut) {                                    // уходящая «езда» растворяется, пока под ней проявляется новый кадр
+      var fo = 1 - (tt - drvOut.t) / .7;
+      if (fo <= 0 || !driveFx(x, fxMap(drvOut.key), tt, drvOut.key, fo * (drvOut.g || 1))) drvOut = null;
+    }
+    if (DRIVE[fxKey]) {
+      if (drv.key !== fxKey) drv = { key: fxKey, t0: null };
+      var gf = 1;
+      if (DRIVE[fxKey].gate) { var gq = (tt - moveT) / (moveOn ? 1.5 : 1.1); gq = Math.max(0, Math.min(1, gq)); gf = moveOn ? gq * gq * (3 - 2 * gq) : 1 - gq * gq * (3 - 2 * gq); }
+      if (gf > 0.002 && driveFx(x, m, tt, fxKey, gf * (drv.t0 == null ? 0 : Math.min(1, (tt - drv.t0) / .8))) && drv.t0 == null) drv.t0 = tt;
+    }
+    for (var q = 0; q < md.length; q++) {
+      var n = md[q];
+      if (n === 'rain') rainFx(x, m, tt, dt);
+      else if (n === 'headlights') headlightsFx(x, m, tt);
+      else if (n.indexOf('puff:') === 0) puffFx(x, m, tt, dt, n.slice(5));
+      else if (n === 'snow') snowFx(x, m, tt, dt);
+      else if (n === 'glass') glassFx(x, m, tt, dt);
+      else if (n === 'flicker') flickerFx(x, m, tt);
+      else if (n === 'mist') mistFx(x, m, tt);
+      else if (n === 'glow') glowFx(x, m, tt);
+      else if (n === 'lights13') lights13Fx(x, m, tt);
+      else if (n === 'screen15') screen15Fx(x, m, tt);
+      else if (n === 'video25') video25Fx(x, m, tt);
+      else if (n === 'led33') led33Fx(x, m, tt);
+    }
+  }
+  function fxMove(on) { if (on === moveOn) return; moveOn = on; moveT = performance.now() / 1000; if (STATIC) moveOn = false; }
+  function fxSet(key) {
+    if (!fxC || !fxX) return;
+    var modes = FX_BG[key] || null, want = !!modes && !STATIC;
+    if (modes && key !== fxKey) {
+      if (fxKey && DRIVE[fxKey] && fxOn && (!DRIVE[fxKey].gate || moveOn)) drvOut = { key: fxKey, t: performance.now() / 1000 };
+      moveOn = false; moveT = -9;
+      fxKey = key; fxModes = modes; if (fxW) fxInit();
+    }
+    if (want && !fxOn) {
+      fxOn = true; clearTimeout(fxOff); fxSize(); fxC.classList.add('on'); fxLast = 0;
+      if (!fxRaf) fxRaf = requestAnimationFrame(fxFrame);
+    } else if (!want && fxOn) {
+      fxOn = false; fxC.classList.remove('on');
+      clearTimeout(fxOff); fxOff = setTimeout(function () { if (!fxOn) { cancelAnimationFrame(fxRaf); fxRaf = 0; fxX.clearRect(0, 0, fxC.width, fxC.height); } }, 800);
+    }
+  }
+  if (fxC && window.ResizeObserver) new ResizeObserver(function () { if (fxOn) fxSize(); }).observe(fxC);
+
+  var layers = [el.bgA, el.bgB], act = -1;
+  function setBg(key, instant) {
+    if (key === bgCur) return;
+    var d = S.bgs[key], ni = act < 0 ? 0 : 1 - act, next = layers[ni], prev = act < 0 ? null : layers[act];
+    var quick = !!instant || STATIC;
+    clearTimeout(next._t);
+    next.style.backgroundImage = 'url(' + d.src + ')'; next.style.backgroundPosition = d.pos;
+    next.style.zIndex = 1; if (prev) prev.style.zIndex = 0;
+    next.classList.toggle('instant', quick);
+    next.classList.add('on');
+    if (prev) {
+      clearTimeout(prev._t);
+      if (quick) prev.classList.remove('on');
+      else prev._t = setTimeout(function () { prev.classList.remove('on'); }, 750);
+    }
+    act = ni; bgCur = key;
+    fxSet(key);
+    el.frame.setAttribute('data-bg', key);
+    el.bgLabel.setAttribute('aria-label', d.label);
+  }
+  function applyProps(b, animate) {
+    if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
+    if (b.hud) setHud(b.hud);
+    if (b.bg) setBg(b.bg, !animate);
+    if (b.move !== undefined) fxMove(!!b.move);
+    if (b.big !== undefined) el.frame.classList.toggle('inds-big', !!b.big);
+    if (b.ind) Object.keys(b.ind).forEach(function (k) { setInd(k, b.ind[k], animate); });
+    if (b.chapStart) chap0 = { car: stats.car, trust: stats.trust };
+    if (b.snap) snaps[b.snap] = { car: stats.car, trust: stats.trust };
+    if (b.stat) applyStats(b.stat, animate);
+    if (b.delta !== undefined) showDelta(!!b.delta);
+    if (b.pulse && animate && !STATIC) b.pulse.forEach(function (k) { var w = el.ind[k].word; w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); });
+  }
+  function showDelta(on) {                          // крупные индикаторы: что изменилось с начала главы
+    el.frame.classList.toggle('inds-delta', on);
+    ['car', 'trust'].forEach(function (k) {
+      var w = el.ind[k].was; if (!w) return;
+      if (!on || !chap0 || chap0[k] == null || stats[k] == null) { w.textContent = ''; return; }
+      var a = wordFor(k, chap0[k]), b = wordFor(k, stats[k]);
+      w.textContent = a === b ? 'без изменений' : (stats[k] > chap0[k] ? '▲ было: ' : '▼ было: ') + a;
+      w.setAttribute('data-dir', a === b ? '' : (stats[k] > chap0[k] ? 'up' : 'down'));
+    });
+  }
+  function replay(upTo) {                           // мгновенно восстановить фон/шапку/индикаторы/флаги по реплику upTo включительно
+    stats = { car: null, trust: null }; indState = { car: {}, trust: {} };
+    snaps = {}; dampPending = false; chap0 = null;
+    el.frame.classList.remove('inds-big', 'inds-delta');
+    for (var n = 0; n <= upTo; n++) {
+      if (!visible(n)) continue;
+      var b = B[n];
+      applyProps(b, false);
+      if (b.kind === 'choice' && b.id && flags[b.id]) {
+        for (var q = 0; q < b.options.length; q++) if (b.options[q].val === flags[b.id]) {
+          if (b.options[q].stat) applyStats(b.options[q].stat, false);
+          if (b.options[q].damp) dampPending = true;
+        }
+      }
+    }
+  }
+
+  /* ---------- показ реплики ---------- */
+  var lastName = null;
+  function showBeat(n, opts) {
+    opts = opts || {};
+    var b = B[n];
+    stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false;
+    el.hint.classList.remove('on'); el.cHint.classList.remove('on');
+    if (b.kind !== 'protocol' && b.kind !== 'standings' && b.kind !== 'hud') hideScreen();
+    if (b.kind === 'protocol' || b.kind === 'standings') return showProtocol(b, opts);
+    if (b.kind === 'hud') return showHudBeat(b, opts);
+    if (b.text && b.text.indexOf('{{') >= 0) b = Object.assign({}, b, { text: tpl(b.text) });
+    if (b.kind === 'cut') return showCut(b, opts);
+    if (b.kind === 'chapter') return showChapter(b, opts);
+    if (b.kind === 'choice') return showChoice(b, opts);
+    mode = 'beat';
+    el.dialog.classList.remove('away'); el.choice.hidden = true;
+    applyProps(b, !opts.instant);
+    if (b.kind === 'black') return showBlack(b, opts);
+    if (cutOpen) closeCut(!!opts.instant);
+
+    var sp = S.speakers[b.who], nm = sp.name + (b.tag ? ' · ' + b.tag : '');
+    if (nm !== lastName || opts.force) {
+      el.name.classList.remove('swap'); void el.name.offsetWidth;
+      el.name.textContent = nm; el.name.classList.add('swap'); lastName = nm;
+    }
+    el.dialog.classList.toggle('thought', b.kind === 'thought');
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.toggle('on', sp.portrait === k); });
+    if (!(b.stat && !opts.instant)) el.sr.textContent = nm + '. ' + b.text;
+    typeIn(b, el.shown, el.rest, el.hint, opts);
+  }
+
+  /* ---------- экраны без текста: протокол этапа и итог индикаторов ---------- */
+  var protoCur = null, protoMe = null, protoScrollT = null;
+  function hideScreen() { stopProtoAnim(); clearTimeout(protoScrollT); el.frame.classList.remove('proto-on'); el.proto.hidden = true; el.proto.classList.remove('on'); el.scrHint.classList.remove('on'); }
+  function screenCommon(b, opts) {                  // общее для протокола и крупных индикаторов
+    mode = 'beat';
+    if (cutOpen) closeCut(!!opts.instant);
+    el.choice.hidden = true; el.dialog.classList.add('away');
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
+    applyProps(b, !opts.instant);
+    lastName = null;
+    el.scrHint.classList.remove('on');
+    if (opts.instant || STATIC) el.scrHint.classList.add('on');
+    else setTimeout(function () { if (mode === 'beat' && (!el.proto.hidden || el.frame.classList.contains('inds-delta'))) el.scrHint.classList.add('on'); }, 900);
+  }
+  function gapParts(g) {                            // отставание в десятых секунды → {m, s, d}: целочисленно, без ошибок округления
+    var t = Math.max(0, Math.round(g * 10));
+    return { m: Math.floor(t / 600), s: Math.floor((t % 600) / 10), d: t % 10 };
+  }
+  function fmtGap(g) {                              // «+ММ:СС,д» — например, +00:15,0 и +01:04,7
+    var p = gapParts(g), z = function (n) { return (n < 10 ? '0' : '') + n; };
+    return '+' + z(p.m) + ':' + z(p.s) + ',' + p.d;
+  }
+  function spokenGap(g) {                           // для скринридера: «1 мин 4,7 с»
+    var p = gapParts(g);
+    return (p.m ? p.m + ' мин ' : '') + p.s + ',' + p.d + ' с';
+  }
+  function protoRows(stage, tAlex) {                // строки протокола: все экипажи — финишировавшие по местам, затем сходы и незаявленные
+    var res = RallyModel.placeOnStage(stage, tAlex), st = res.standings;
+    var rows = [], alexOut = tAlex === null;          // tAlex = null — Алекс сошёл: строка «сход» вместо места
+    st.forEach(function (r) {
+      rows.push({ place: r.place, label: r.label, gapT: r.place === 1 ? 'лидер' : fmtGap(r.gap), gapRaw: r.gap, pts: r.points, alex: !!r.isAlex });
+    });
+    var out = [];
+    RALLY_DATA.crews.forEach(function (c) {
+      var stt = c.r[stage][0];
+      if (stt === 'ret') out.push({ place: '—', label: RallyModel.crewLabelByNumber(c.n), gapT: 'сход', pts: 0, off: true });
+      else if (stt !== 'fin' && c.n < 50) out.push({ place: '—', label: RallyModel.crewLabelByNumber(c.n), gapT: 'не заявлен', pts: 0, off: true });
+    });
+    if (alexOut) out.push({ place: '—', label: 'Алекс / Лебедева', gapT: 'сход', pts: 0, off: true, alex: true });
+    return { rows: rows.concat(out), alex: res.alex, total: st.length };
+  }
+  /* появление таблицы: лист всплывает, строки выезжают по очереди, отставание и очки «набегают» от нуля.
+     mode: 'intro' — первое открытие; 'more' — по кнопке «весь протокол» (анимируются только новые строки); иначе без анимации */
+  var protoRaf = null, protoSeen = {};
+  function stopProtoAnim() { if (protoRaf) cancelAnimationFrame(protoRaf); protoRaf = null; }
+  function runCounters(items) {                     // items: {td, kind, to, at, dur}; один rAF-цикл на все числа
+    stopProtoAnim();
+    var t0 = performance.now();
+    (function tick() {
+      var now = performance.now() - t0, alive = false;
+      items.forEach(function (it) {
+        var p = Math.max(0, Math.min(1, (now - it.at) / it.dur)), e = 1 - Math.pow(1 - p, 3);
+        var v = Math.round(it.to * e);
+        it.td.textContent = it.kind === 'gap' ? fmtGap(v / 10) : String(v);
+        if (p < 1) alive = true;
+      });
+      protoRaf = alive ? requestAnimationFrame(tick) : null;
+    })();
+  }
+  var NUMW = ['', 'одного', 'двух', 'трёх', 'четырёх', 'пяти'], NUMN = ['ноль', 'один', 'два', 'три', 'четыре', 'пять', 'шесть'];
+  function plural(n, a, b, c) { var m = n % 100, d = n % 10; return (m > 10 && m < 15) ? c : d === 1 ? a : (d >= 2 && d <= 4) ? b : c; }
+  function standRows(b, t) {                        // общий зачёт после этапа b.stage: все экипажи, движение относительно прошлого этапа
+    var now = seasonRanked(b.stage, t).filter(function (r) { return r.pts > 0 || r.n === 4; }), before = {};   // без очков в зачёте не значатся
+    if (b.stage > 0) seasonRanked(b.stage - 1, t).filter(function (r) { return r.pts > 0 || r.n === 4; }).forEach(function (r, i) { before[r.n] = i + 1; });
+    now.forEach(function (r, i) { r.place = i + 1; });
+    var alex = now.filter(function (r) { return r.n === 4; })[0] || null;
+    var rows = [];
+    now.forEach(function (r) {
+      var mv = '', dir = '', was = before[r.n];
+      if (was != null && was !== r.place) { dir = was > r.place ? 'up' : 'down'; mv = (dir === 'up' ? '▲ ' : '▼ ') + Math.abs(was - r.place); }
+      else mv = '—';
+      rows.push({ place: r.place, label: r.label, gapT: mv, mv: dir, pts: r.pts, alex: r.n === 4 });
+    });
+    return { rows: rows, alex: alex };
+  }
+  function renderProto(mode) {
+    var b = protoCur; if (!b) return;
+    var anim = !STATIC && mode === 'intro';
+    stopProtoAnim();
+    var dv = derived(), ret = b.stage === 2 && dv.ret2 === 1;     // сход на «Печорах»: времени Алекса нет
+    var t = ret ? null : dv.t[b.stage];
+    if (t == null && !ret) t = RallyModel.alexStageTime(b.stage, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
+    var stand = b.kind === 'standings', d, tAll = derived().t.slice();
+    if (stand) {
+      for (var si = 0; si <= b.stage; si++) if (tAll[si] == null && !(si === 2 && ret)) tAll[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
+      d = standRows(b, tAll);
+    } else d = protoRows(b.stage, t);
+    el.proto.classList.toggle('st', stand);
+    el.protoGap.textContent = stand ? 'Движение' : 'Отставание от лидера';
+    el.protoTitle.textContent = '';                  // «Итоги ралли «Ильмень»»: первая часть тонко, название — акцентом
+    var tPre = document.createElement('span'); tPre.className = 'pt-pre'; tPre.textContent = stand ? 'Общий зачёт' : 'Итоги ралли';
+    var tName = document.createElement('span'); tName.className = 'pt-name'; tName.textContent = stand ? 'после ' + (NUMW[b.stage + 1] || (b.stage + 1)) + ' ' + plural(b.stage + 1, 'этапа', 'этапов', 'этапов') : '«' + RALLY_DATA.stages[b.stage] + '»';
+    el.protoTitle.appendChild(tPre); el.protoTitle.appendChild(document.createTextNode(' ')); el.protoTitle.appendChild(tName);
+    el.protoSub.textContent = 'Чемпионат России · класс R2 · ' + (stand ? 'личный зачёт' : RALLY_DATA.dates[b.stage]);
+    el.protoBody.innerHTML = '';
+    var counters = [], k = 0, T0 = 420, STEP = 55;   // первая строка — после лица листа; шаг между строками
+    d.rows.forEach(function (r) {
+      var tr = document.createElement('tr'), delay = T0 + Math.min(k, 14) * STEP;
+      if (anim) { tr.classList.add('a-in'); tr.style.setProperty('--d', delay); }
+      k++;
+      if (r.alex) tr.classList.add('me'); if (r.off) tr.classList.add('off'); else if (!r.alex && r.place === 1) tr.classList.add('lead');
+      var counts = anim && !r.off;
+      [[r.place, 'c-pl'], [r.label, 'c-cr'], [r.gapT, 'c-gap'], [r.pts ? String(r.pts) : '—', 'c-pt']].forEach(function (c, ci) {
+        var td = document.createElement('td'); td.className = c[1] + (ci === 2 && r.mv ? ' mv-' + r.mv : ''); td.textContent = c[0]; tr.appendChild(td);
+        if (!counts) return;
+        if (ci === 2 && r.gapRaw != null && r.place !== 1) { var tn = Math.round(r.gapRaw * 10); td.textContent = fmtGap(0); counters.push({ td: td, kind: 'gap', to: tn, at: delay + 160, dur: 750 }); }
+        if (ci === 3 && r.pts) { td.textContent = '0'; counters.push({ td: td, kind: 'pts', to: r.pts, at: delay + 160, dur: 600 }); }
+      });
+      if (r.alex) protoMe = tr;
+      el.protoBody.appendChild(tr);
+    });
+    if (anim && counters.length) runCounters(counters);
+    var a = d.alex;
+    if (stand) el.sr.textContent = 'Общий зачёт ' + el.protoTitle.textContent.replace('Общий зачёт ', '') + '. ' + (a ? 'Алекс: ' + a.place + '-е место, очков: ' + a.pts + '.' : '');
+    else if (ret) el.sr.textContent = 'Итоги ралли «' + RALLY_DATA.stages[b.stage] + '». Алекс: сход, очков: 0.';
+    else el.sr.textContent = 'Итоги ралли «' + RALLY_DATA.stages[b.stage] + '». ' + (a ? 'Алекс: ' + a.place + '-е место' + (a.place > 1 ? ', отставание от лидера ' + spokenGap(a.gap) : '') + ', очков: ' + a.points + '.' : '');
+  }
+  function showProtocol(b, opts) {
+    protoCur = b; protoMe = null;
+    screenCommon(b, opts);
+    var anim = !STATIC && !opts.instant;
+    el.protoSheet.classList.remove('intro');
+    renderProto(anim ? 'intro' : 'none');
+    el.frame.classList.add('proto-on');               // фон за таблицей размывается — взгляд остаётся на результатах
+    el.proto.hidden = false; void el.proto.offsetWidth; el.proto.classList.add('on');
+    if (anim) el.protoSheet.classList.add('intro');
+    el.proto.scrollTop = 0;
+    clearTimeout(protoScrollT);                       // список длинный: если строка Алекса не помещается на экран, подвести её в видимую область
+    protoScrollT = setTimeout(function () {
+      if (!protoMe || el.proto.hidden) return;
+      var pr = el.proto.getBoundingClientRect(), r = protoMe.getBoundingClientRect(), pad = pr.height * 0.14;
+      if (r.bottom > pr.bottom - pad || r.top < pr.top + pad) {
+        var to = el.proto.scrollTop + (r.top - pr.top) - (pr.height - r.height) / 2;
+        try { el.proto.scrollTo({ top: Math.max(0, to), behavior: STATIC ? 'auto' : 'smooth' }); } catch (e) { el.proto.scrollTop = Math.max(0, to); }
+      }
+    }, anim ? 1900 : 50);
+  }
+  function showHudBeat(b, opts) {                   // только индикаторы, крупно, с отметкой «что изменилось за главу»
+    screenCommon(b, opts);
+    showDelta(!!b.delta);
+    el.sr.textContent = ['car', 'trust'].map(function (k) { return S.bands[k].name + ' ' + wordFor(k, stats[k]) + (el.ind[k].was.textContent ? ' (' + el.ind[k].was.textContent.replace(/[▲▼] /, '') + ')' : ''); }).join('. ');
+  }
+
+  function typeIn(b, shownEl, restEl, hintEl, opts) {
+    var ctx = { b: b, s: shownEl, r: restEl, h: hintEl };
+    cur = ctx;
+    if (STATIC || (opts && opts.instant)) { finishTyping(); return; }
+    typing = true; pos = 0;
+    var t0 = performance.now();
+    (function tick() {
+      var want = Math.min(b.text.length, Math.floor((performance.now() - t0) / CPS_MS));
+      if (want !== pos) { pos = want; paint(b.text, pos); }
+      if (pos >= b.text.length) { finishTyping(); return; }
+      timer = requestAnimationFrame(tick);
+    })();
+  }
+  var cur = null;
+  function paint(text, p) { cur.s.textContent = text.slice(0, p); cur.r.textContent = text.slice(p); }
+  function finishTyping() {
+    if (timer) cancelAnimationFrame(timer); timer = null;
+    typing = false; paint(cur.b.text, cur.b.text.length);
+    cur.h.classList.add('on');
+  }
+  function stopTyping() { if (timer) cancelAnimationFrame(timer); timer = null; typing = false; }
+  function clearAuto() { if (autoT) clearTimeout(autoT); autoT = null; }
+
+  /* ---------- чёрные кадры, карточка главы ---------- */
+  function openCut(hard) {
+    cutOpen = true;
+    el.cut.classList.toggle('hard', !!hard || STATIC);
+    el.cut.classList.add('on');
+  }
+  function closeCut(instant) {
+    cutOpen = false;
+    el.cut.classList.toggle('hard', !!instant || STATIC);
+    el.cut.classList.remove('on');
+    el.cShown.textContent = ''; el.cRest.textContent = '';
+    if (instant || STATIC) el.cut.classList.remove('chap');
+    else { clearTimeout(el.cut._t); el.cut._t = setTimeout(function () { if (!cutOpen) el.cut.classList.remove('chap'); }, 950); }
+  }
+  function showCut(b, opts) {
+    mode = 'cut'; cutAt = performance.now();
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
+    if (b.sfx) window.dispatchEvent(new CustomEvent('vn:sfx', { detail: b.sfx }));   // звук подключим позже
+    if (b.fx === 'crash') {
+      openCut(true);
+      if (!STATIC) { el.frame.classList.remove('shake'); void el.frame.offsetWidth; el.frame.classList.add('shake'); }
+    } else openCut(false);
+    el.sr.textContent = b.fx === 'crash' ? 'Удар. Тишина.' : 'Затемнение.';
+    autoT = setTimeout(function () { autoT = null; go(); }, opts.instant ? 0 : (b.hold || 1200));
+  }
+  function showBlack(b, opts) {
+    mode = 'cut';
+    clearTimeout(el.cut._t); el.cut.classList.remove('chap');
+    if (!cutOpen) openCut(true);
+    el.sr.textContent = b.text;
+    typeIn(b, el.cShown, el.cRest, el.cHint, opts);
+  }
+  function showChapter(b, opts) {                   // чёрный кадр с названием главы; хук для рекламной паузы — событие vn:chapter
+    mode = 'cut'; cutAt = performance.now(); chapHold = true;
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
+    el.dialog.classList.add('away');
+    clearTimeout(el.cut._t);
+    el.cKick.textContent = b.kicker || ''; el.cTitle.textContent = b.title || '';
+    el.cShown.textContent = ''; el.cRest.textContent = '';
+    el.cut.classList.add('chap');
+    if (!cutOpen) openCut(false);
+    el.cut.classList.remove('on'); void el.cut.offsetWidth; el.cut.classList.add('on');
+    window.dispatchEvent(new CustomEvent('vn:chapter', { detail: { n: b.n, title: b.title } }));
+    el.sr.textContent = (b.kicker || '') + '. ' + (b.title || '');
+    if (opts.instant || STATIC) el.cHint.classList.add('on');
+    else chapT = setTimeout(function () { el.cHint.classList.add('on'); }, 1100);
+  }
+
+  /* ---------- выбор ---------- */
+  function showChoice(b, opts) {
+    mode = 'choice';
+    el.dialog.classList.add('away');
+    el.hint.classList.remove('on');
+    el.choice.innerHTML = '';
+    var vis = b.options.filter(function (o) { return whenOk(o.when); });     // вариант с условием показывается, только если условие выполнено
+    vis.forEach(function (o) {
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'opt'; btn.textContent = o.label;
+      btn.addEventListener('click', function (e) { e.stopPropagation(); pick(b, o); });
+      el.choice.appendChild(btn);
+    });
+    if (!document.querySelector('.portrait.on')) {           // при восстановлении: показать того, кто говорил перед выбором
+      for (var q = i - 1; q >= 0; q--) if (visible(q) && B[q].who) { var pp = S.speakers[B[q].who].portrait; if (pp) el.portraits[pp].classList.add('on'); break; }
+    }
+    el.choice.hidden = false;
+    el.sr.textContent = 'Выберите ответ. ' + vis.map(function (o, k) { return (k + 1) + '. ' + o.label; }).join('. ');
+    var first = el.choice.querySelector('.opt'); if (first && !opts.instant) { try { first.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  function setChoice(b, o) {                        // флаги выбранного варианта; флаги остальных вариантов снимаются
+    b.options.forEach(function (x) { if (x.flags) Object.keys(x.flags).forEach(function (k) { delete flags[k]; }); });
+    flags[b.id] = o.val;
+    if (o.flags) Object.keys(o.flags).forEach(function (k) { flags[k] = o.flags[k]; });
+  }
+  function pick(b, o) {
+    if (mode !== 'choice') return;
+    setChoice(b, o);
+    el.choice.hidden = true; el.dialog.classList.remove('away');
+    if (o.stat) applyStats(o.stat, true);                    // изменение — только после подтверждения выбора
+    if (o.damp) dampPending = true;
+    i = nextVisible(i); save(); showBeat(i, { force: true });
+  }
+
+  /* ---------- переходы ---------- */
+  function go() {                                   // следующая реплика без «дописывания»
+    if (ended || rbOpen) return;
+    var n = nextVisible(i);
+    if (n >= B.length) { showEnd(); return; }
+    i = n; save(); showBeat(i);
+  }
+  function advance() {
+    if (ended || rbOpen || mode === 'choice') return;
+    if (mode === 'cut' && chapHold) {               // карточка главы: тап не сразу
+      if (performance.now() - cutAt < 700) return;
+      chapHold = false; go(); return;
+    }
+    if (mode === 'cut' && autoT) {                  // тап во время чёрного кадра — пропустить, но не сразу
+      if (performance.now() - cutAt < 450) return;
+      clearAuto(); go(); return;
+    }
+    if (typing) { finishTyping(); return; }         // первое касание дописывает текст
+    go();
+  }
+  function showEnd() {
+    ended = true; el.cShown.textContent = ''; el.cRest.textContent = ''; el.end.hidden = false; el.scrHint.classList.remove('on'); el.hint.classList.remove('on'); el.cHint.classList.remove('on'); clear();
+    try { el.endBtn.focus({ preventScroll: true }); } catch (e) {}
+  }
+  function restart() {
+    ended = false; el.end.hidden = true; flags = {}; i = 0; lastName = null; hideScreen();
+    closeCut(true); save(); replay(-1); showBeat(0, { force: true });
+  }
+
+  /* ---------- маршрутный лист: оглавление сцен для вычитки и тестирования (кнопка в шапке или клавиша M) ---------- */
+  var RB_GROUPS = [
+    { key: 'k14', label: 'Сцена 1.4', opts: [['A', 'Не сдал назад'], ['B', 'Промолчал']] },
+    { key: 'k23', label: 'Сцена 2.3', opts: [['A', 'Признал горку'], ['B', 'Про педаль'], ['V', 'Что бы ты написала']] },
+    { key: 'k32', label: 'Сцена 3.1', opts: [['A', 'Спросил о Кравце'], ['B', 'Не полез']] },
+    { key: 'k33', label: 'Сцена 3.3', opts: [['A', 'Прибавил'], ['B', 'В лимите, быстрая проверка'], ['V', 'В лимите, полная проверка СУ-3']] },
+    { key: 'k34', label: 'Сцена 3.4', opts: [['A', 'Не убегай'], ['B', 'Разберём вечером'], ['V', 'Накричал']] },
+    { key: 'k36', label: 'Сцена 3.6', opts: [['A', 'Купили резину'], ['B', 'Спонсорская']] },
+    { key: 'k37', label: 'Сцена 3.7', opts: [['A', 'Молчал'], ['B', '«Ищи!»'], ['V', 'Дал ориентир']] },
+    { key: 'k41', label: 'Сцена 4.1', opts: [['A', 'Верю, обе вещи правда'], ['B', 'Не вытянул'], ['V', 'Про трассу']] },
+    { key: 'k42', label: 'Сцена 4.2', opts: [['A', 'Денис, сейчас'], ['B', 'После сезона']] },
+    { key: 'k44', label: 'Сцена 4.4', opts: [['A', 'Ровнее, опоздаем на КВ'], ['B', 'Сколько успеешь'], ['V', 'Верю на слово (нужно 1.4-А)']] },
+    { key: 'k45', label: 'Сцена 4.5', opts: [['A', 'Дорожный темп'], ['B', 'На пределе']] }
+  ];
+  function rbFlags() {                               // флаги, которые получились бы при выбранных в листе вариантах (для условий вариантов)
+    var f = {};
+    RB_GROUPS.forEach(function (g) {
+      var cb = choiceBeat(g.key); if (!cb) return;
+      var v = rbSel[g.key]; if (v == null) return;
+      f[g.key] = v;
+      cb.options.forEach(function (o) { if (o.val === v && o.flags) Object.keys(o.flags).forEach(function (k) { f[k] = o.flags[k]; }); });
+    });
+    return f;
+  }
+  function rbValid(key, val) {                       // вариант доступен при выбранных ветках (например, «Верю на слово» требует 1.4-А)
+    var cb = choiceBeat(key), ok = false; if (!cb) return true;
+    var f = rbFlags();
+    cb.options.forEach(function (o) { if (o.val === val && whenOk(o.when, f)) ok = true; });
+    return ok;
+  }
+  function rbFix() {                                 // недоступный вариант заменяется первым доступным
+    RB_GROUPS.forEach(function (g) {
+      if (rbValid(g.key, rbSel[g.key])) return;
+      for (var q = 0; q < g.opts.length; q++) if (rbValid(g.key, g.opts[q][0])) { rbSel[g.key] = g.opts[q][0]; break; }
+    });
+  }
+  function selectOpt(key, val) {                     // поставить вариант выбора (с флагами); недоступный — первый доступный
+    var cb = choiceBeat(key); if (!cb) return;
+    var o = null;
+    cb.options.forEach(function (x) { if (!o && x.val === val && whenOk(x.when)) o = x; });
+    if (!o) cb.options.forEach(function (x) { if (!o && whenOk(x.when)) o = x; });
+    if (o) { setChoice(cb, o); rbSel[key] = o.val; }
+  }
+  function choiceBeat(key) { for (var n = 0; n < B.length; n++) if (B[n].kind === 'choice' && B[n].id === key) return B[n]; return null; }
+  function currentScene() { var id = null; for (var n = 0; n <= i && n < B.length; n++) if (B[n].scene && visible(n)) id = B[n].scene; return id; }
+  function buildRb() {
+    var body = $('rbBody'), foot = $('rbFoot');
+    body.innerHTML = ''; foot.innerHTML = '';
+    S.chapters.forEach(function (ch) {
+      var col = document.createElement('div'); col.className = 'rb-col';
+      var h = document.createElement('div'); h.className = 'rb-ch'; h.textContent = ch.title; col.appendChild(h);
+      ch.scenes.forEach(function (sc) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'rb-row'; b.setAttribute('data-scene', sc.id);
+        var a = document.createElement('span'); a.className = 'rb-id'; a.textContent = sc.id;
+        var t = document.createElement('span'); t.className = 'rb-name'; t.textContent = sc.title;
+        b.appendChild(a); b.appendChild(t);
+        b.addEventListener('click', function (e) { e.stopPropagation(); jumpTo(sc.id); });
+        col.appendChild(b);
+      });
+      body.appendChild(col);
+    });
+    RB_GROUPS.forEach(function (g) {
+      var seg = document.createElement('div'); seg.className = 'rb-seg'; seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', g.label);
+      var l = document.createElement('span'); l.className = 'rb-seg-l'; l.textContent = g.label + ' →'; seg.appendChild(l);
+      g.opts.forEach(function (o) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'rb-opt'; b.textContent = o[1]; b.setAttribute('data-key', g.key); b.setAttribute('data-val', o[0]);
+        b.addEventListener('click', function (e) { e.stopPropagation(); if (!rbValid(g.key, o[0])) return; rbSel[g.key] = o[0]; rbFix(); markRb(); });
+        seg.appendChild(b);
+      });
+      foot.appendChild(seg);
+    });
+    var pr = document.createElement('button'); pr.type = 'button'; pr.className = 'rb-preset'; pr.textContent = 'Пресет «сход на Печорах»';
+    pr.setAttribute('title', 'Резина по цене (3.6-Б), Толя без поправок (4.4-Б), на пределе (4.5-Б)');
+    pr.addEventListener('click', function (e) { e.stopPropagation(); rbSel.k36 = 'B'; rbSel.k44 = 'B'; rbSel.k45 = 'B'; rbFix(); markRb(); });
+    foot.appendChild(pr);
+    var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'rb-restart'; rs.textContent = 'Начать сначала';
+    rs.addEventListener('click', function (e) { e.stopPropagation(); closeRb(); restart(); });
+    foot.appendChild(rs);
+    $('rbClose').addEventListener('click', function (e) { e.stopPropagation(); closeRb(); });
+  }
+  function markRb() {
+    var cur = currentScene();
+    Array.prototype.forEach.call(document.querySelectorAll('.rb-row'), function (r) {
+      var on = r.getAttribute('data-scene') === cur; r.classList.toggle('cur', on);
+      if (on) r.setAttribute('aria-current', 'step'); else r.removeAttribute('aria-current');
+    });
+    rbFix();
+    Array.prototype.forEach.call(document.querySelectorAll('.rb-opt'), function (b) {
+      var k = b.getAttribute('data-key'), v = b.getAttribute('data-val'), ok = rbValid(k, v);
+      b.setAttribute('aria-pressed', rbSel[k] === v ? 'true' : 'false');
+      b.disabled = !ok; b.classList.toggle('na', !ok);
+    });
+  }
+  function openRb() {
+    RB_GROUPS.forEach(function (g) { rbSel[g.key] = flags[g.key] || rbSel[g.key] || 'A'; });
+    markRb(); rbOpen = true; $('rb').hidden = false;
+    var cur = document.querySelector('.rb-row.cur') || document.querySelector('.rb-row');
+    if (cur) { try { cur.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  function closeRb() { rbOpen = false; $('rb').hidden = true; }
+  function jumpTo(id) {                              // перейти к началу сцены с выбранными ветками
+    var n = sceneStart(id); if (n < 0) return;
+    RB_GROUPS.forEach(function (g) { selectOpt(g.key, rbSel[g.key]); });
+    ended = false; el.end.hidden = true;
+    stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false; hideScreen();
+    closeCut(true); el.choice.hidden = true; el.dialog.classList.remove('away');
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
+    replay(n - 1);
+    if (!visible(n)) { n = nextVisible(n); replay(n - 1); }
+    i = n; lastName = null; closeRb(); save();
+    showBeat(i, { force: true, instant: true });
+  }
+  buildRb();
+  $('roadbook').addEventListener('click', function (e) { e.stopPropagation(); if (rbOpen) closeRb(); else openRb(); });
+
+  /* ---------- ввод ---------- */
+  el.stage.addEventListener('click', function (e) {
+    if (e.target.closest && (e.target.closest('#roadbook') || e.target.closest('#end') || e.target.closest('#choice') || e.target.closest('#rb'))) return;
+    advance();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
+    if (rbOpen) { if (e.key === 'Escape') { e.preventDefault(); closeRb(); } return; }
+    if (mode === 'choice' && !ended) {
+      var opts = el.choice.querySelectorAll('.opt'), n = parseInt(e.key, 10);
+      if (n >= 1 && n <= opts.length) { e.preventDefault(); opts[n - 1].click(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        var idx = Array.prototype.indexOf.call(opts, document.activeElement);
+        idx = e.key === 'ArrowDown' ? Math.min(opts.length - 1, idx + 1) : Math.max(0, idx < 0 ? 0 : idx - 1);
+        opts[idx].focus(); return;
+      }
+    }
+    if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
+    if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); advance(); }
+  });
+  el.endBtn.addEventListener('click', restart);
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  /* ---------- старт ---------- */
+  function sceneStart(id) { for (var n = 0; n < B.length; n++) if (B[n].scene === id) return n; return -1; }
+  var start = 0, saved = null;
+  if (params.has('s') && sceneStart(params.get('s')) >= 0) start = sceneStart(params.get('s'));
+  else if (params.has('b')) start = Math.max(0, Math.min(B.length - 1, parseInt(params.get('b'), 10) || 0));
+  else if (!params.has('fresh')) { saved = load(); if (saved) { flags = saved.flags || {}; start = saved.i; } }
+  if (params.has('k')) flags.k14 = params.get('k');                    // для проверки веток: ?s=2.3&k=A|B
+  if (params.has('f')) params.get('f').split(',').forEach(function (kv) {   // ?f=k14:A,k23:B,k33:V
+    var p = kv.split(':'); if (p[0]) flags[p[0]] = (p[1] === '1' || p[1] === 'true') ? true : p[1];
+  });
+  RB_GROUPS.forEach(function (g) {                                      // развилки, заданные в адресе: доставить и сопутствующие флаги варианта
+    if (flags[g.key]) selectOpt(g.key, flags[g.key]);
+  });
+  if (start > 0) replay(start - 1);                                    // условия показа зависят от состояния — восстановить его до проверки
+  if (!visible(start)) { start = nextVisible(start); replay(start - 1); }
+  if (params.has('end')) {
+    RB_GROUPS.forEach(function (g) { selectOpt(g.key, flags[g.key] || 'A'); });   // ?end — конец фрагмента; ветки по умолчанию «А», остальные — из ?f=
+    i = lastVisible(); replay(i - 1); showBeat(i, { instant: true, force: true }); showEnd();
+  }
+  else {
+    i = Math.min(start, B.length - 1);
+    replay(i - 1);
+    showBeat(i, { force: true, instant: params.has('b') || params.has('s') });
+  }
+
+  /* фоны подгружаем заранее, чтобы смена кадра не мигала */
+  setTimeout(function () { Object.keys(S.bgs).forEach(function (k) { var im = new Image(); im.src = S.bgs[k].src; }); }, 600);
+
+  window.__vn = { jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
+                  derived: function () { return derived(); }, snaps: function () { return snaps; },
+                  protocol: function () { return Array.prototype.map.call(el.protoBody.querySelectorAll('tr'), function (r) { return Array.prototype.map.call(r.children, function (c) { return c.textContent; }); }); },
+                  mode: function () { return mode; }, ended: function () { return ended; },
+                  lines: function () { var r = []; for (var n = 0; n < B.length; n++) if (visible(n)) r.push(n); return r; },
+                  opts: function () { return Array.prototype.map.call(el.choice.querySelectorAll('.opt'), function (b) { return b.textContent; }); } };
+})();
