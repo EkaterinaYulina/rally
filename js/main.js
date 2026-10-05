@@ -1,4 +1,4 @@
-/* «Путь» — пролог и главы 2–4: реплики, портреты, шапка, фоны, выбор, числа индикаторов, карточка главы, протокол этапа (модель сезона), автосохранение. */
+/* «Путь» — пролог и главы 2–5: реплики, портреты, шапка, фоны, выбор, числа индикаторов, карточка главы, протокол этапа (модель сезона), автосохранение. */
 (function () {
   'use strict';
   var S = window.STORY, B = S.beats;
@@ -50,19 +50,21 @@
   function isRet2() {                                // сход на «Печорах» (4.5Б): не хранится флагом, считается по снимку 🔧 перед 4.5 — не «застревает» при прыжках по маршрутному листу
     return flags.k45 === 'B' && !!snaps.s45 && (snaps.s45.car - 4) <= 3;
   }
-  function alexTimes() {                             // время Алекса на этапах 0 (Ильмень), 1 (Рускеала), 2 (Печоры); null — этап ещё не стартовал или сход
+  function alexTimes() {                             // время Алекса на этапах 0 (Ильмень), 1 (Рускеала), 2 (Печоры), 4 (Урал); null — этап ещё не стартовал, сход или Алекс не заявлен (3 — «Горный край»)
     var ch = {};
     if (flags.k33) ch['3.3'] = CYR[flags.k33];
     if (flags.k37) ch['3.7'] = CYR[flags.k37];
     if (flags.k44) ch['4.4'] = CYR[flags.k44];
     if (flags.k45) ch['4.5'] = CYR[flags.k45];
     /* снимок для формулы времени — как в калибровке (rally_tables_calibration.py): Ильмень — перед 3.4; Рускеала — после эффекта выбора 3.7 (🤝),
-       до износа; Печоры — после выбора 4.4 (🔧 +2), до последствий 4.5. Разовая потеря 3.7-А смотрит на 🤝 до выбора (снимок s1). */
-    var KEY = ['s0', 's1b', 's45'];
-    return [0, 1, 2].map(function (s) {
+       до износа; Печоры — после выбора 4.4 (🔧 +2), до последствий 4.5; Урал — на старте 5.7, после капиталки, выбора 5.5 и бонусов 5.2/5.4, до износа.
+       Разовая потеря 3.7-А смотрит на 🤝 до выбора (снимок s1). «Горный край» (этап 3): Алекс не заявлен — времени нет. */
+    var KEY = ['s0', 's1b', 's45', null, 's4'];
+    return [0, 1, 2, 3, 4].map(function (s) {
+      if (s === 3) return null;
       var sn = snaps[KEY[s]]; if (!sn) return null;
       if (s === 2 && isRet2()) return null;
-      return RallyModel.alexStageTime(s, sn.trust, sn.car, { choices: ch, flags: [], trust: (s === 1 && snaps.s1) ? snaps.s1.trust : sn.trust });
+      return RallyModel.alexStageTime(s, sn.trust, sn.car, { choices: s === 4 ? {} : ch, flags: [], trust: (s === 1 && snaps.s1) ? snaps.s1.trust : sn.trust });
     });
   }
   /* Общий зачёт после этапов 0..upto. Одинаковые очки — по лучшим результатам (как в регламенте): у кого выше места на этапах, тот впереди. */
@@ -88,31 +90,49 @@
     arr.forEach(function (r, i) { r.place = i + 1; });
     return arr;
   }
-  function derived() {                               // place0..place2, rank1, rank2, ret2 — по модели; null, пока данных нет
-    var key = JSON.stringify([snaps.s0 || 0, snaps.s1 || 0, snaps.s1b || 0, snaps.s45 || 0, flags.k33 || 0, flags.k37 || 0, flags.k44 || 0, flags.k45 || 0]);
+  function derived() {                               // place0..place2, place4, rank1..rank4, ret2 — по модели; null, пока данных нет
+    var key = JSON.stringify([snaps.s0 || 0, snaps.s1 || 0, snaps.s1b || 0, snaps.s45 || 0, snaps.s4 || 0, flags.k33 || 0, flags.k37 || 0, flags.k44 || 0, flags.k45 || 0]);
     if (key === dKey) return dVal;
-    var t = alexTimes(), out = { place0: null, place1: null, place2: null, rank1: null, rank2: null, ret2: snaps.s45 ? (isRet2() ? 1 : 0) : null, t: t };
-    var pl = [0, 1, 2].map(function (s) { return t[s] != null ? RallyModel.placeOnStage(s, t[s]) : null; });
+    var t = alexTimes(), out = { place0: null, place1: null, place2: null, place4: null, rank1: null, rank2: null, rank3: null, rank4: null, ret2: snaps.s45 ? (isRet2() ? 1 : 0) : null, t: t };
+    var pl = [0, 1, 2, 3, 4].map(function (s) { return t[s] != null ? RallyModel.placeOnStage(s, t[s]) : null; });
     if (pl[0]) out.place0 = pl[0].alex.place;
     if (pl[1]) out.place1 = pl[1].alex.place;
     if (pl[2]) out.place2 = pl[2].alex.place;
-    if (pl[0] && pl[1]) {                              // общий зачёт после двух этапов
-      var rk = seasonRanked(1, t);
-      for (var q = 0; q < rk.length; q++) if (rk[q].n === 4) { out.rank1 = q + 1; out.pts = rk[q].pts; }
+    if (pl[4]) out.place4 = pl[4].alex.place;
+    function rankAfter(upto) {                         // место Алекса в общем зачёте после этапов 0..upto (null — у Алекса нет строки)
+      var rk = seasonRanked(upto, t);
+      for (var q = 0; q < rk.length; q++) if (rk[q].n === 4) return { r: q + 1, pts: rk[q].pts };
+      return null;
     }
-    if (pl[0] && pl[1] && snaps.s45) {                  // после трёх этапов (при сходе на третьем — без очков за него)
-      var rk2 = seasonRanked(2, t);
-      for (var q2 = 0; q2 < rk2.length; q2++) if (rk2[q2].n === 4) { out.rank2 = q2 + 1; out.pts2 = rk2[q2].pts; }
+    if (pl[0] && pl[1]) { var r1 = rankAfter(1); if (r1) { out.rank1 = r1.r; out.pts = r1.pts; } }          // после двух этапов
+    if (pl[0] && pl[1] && snaps.s45) {                  // после трёх (при сходе на третьем — без очков за него) и после «Горного края» (Алекс не заявлен)
+      var r2 = rankAfter(2); if (r2) { out.rank2 = r2.r; out.pts2 = r2.pts; }
+      var r3 = rankAfter(3); if (r3) { out.rank3 = r3.r; out.pts3 = r3.pts; }
+      if (pl[4]) { var r4 = rankAfter(4); if (r4) { out.rank4 = r4.r; out.pts4 = r4.pts; } }
     }
     dKey = key; dVal = out; return out;
   }
-  function numVal(k) {
+  function blk52(fl) {                               // 5.2-А («срочная доставка») заблокирована: нет денег. Нужны оба флага — штраф на ознакомлении (3.3-А) и резина за свои (3.6-А); при молчании (1.4-Б) хватает одного
+    var a = fl.k33 === 'A', b = fl.k36 === 'A', m = fl.k14 === 'B';
+    return (a && b) || (m && (a || b)) ? 1 : 0;
+  }
+  function numVal(k, fl) {
     if (k === 'trust' || k === 'car') return stats[k];
-    if (k === 'place0' || k === 'place1' || k === 'place2' || k === 'rank1' || k === 'rank2' || k === 'ret2') return derived()[k];
+    if (k === 'blk52') return blk52(fl || flags);
+    if (k === 'place0' || k === 'place1' || k === 'place2' || k === 'place4' || k === 'rank1' || k === 'rank2' || k === 'rank3' || k === 'rank4' || k === 'ret2') return derived()[k];
     return null;
   }
-  function tpl(text) {                                // {{ord0}}, {{ord1}} — порядковое числительное места
-    return text.replace(/\{\{ord([012])\}\}/g, function (m, d) { var p = derived()['place' + d]; return ORD[p] || (p + '-е'); });
+  /* 🔧 после капиталки (5.6): значение на входе в 4.5, минус износ (0 при {сберегли_мотор}, 3 при сходе, иначе 1); сверху 5.2-А (+2) и 5.4-А (+1, кроме {молчание}) */
+  function repairCar() {
+    var s = snaps.s45; if (!s) return null;
+    var v = s.car - (flags.k45 === 'A' ? 0 : (isRet2() ? 3 : 1));
+    if (flags.k52 === 'A') v += 2;
+    if (flags.k54 === 'A' && flags.k14 !== 'B') v += 1;
+    return Math.max(0, Math.min(10, v));
+  }
+  function tpl(text) {                                // {{ord0}}, {{ord1}}, {{ord2}}, {{ord4}} — порядковое числительное места на этапе («Пятое»); {{ordr1}}…{{ordr4}} — места в общем зачёте после этапа (ordl — со строчной)
+    return text.replace(/\{\{ord([0124])\}\}/g, function (m, d) { var p = derived()['place' + d]; return ORD[p] || (p + '-е'); })
+               .replace(/\{\{ord([rl])([1234])\}\}/g, function (m, k, d) { var p = derived()['rank' + d], w = ORD[p] || (p + '-е'); return k === 'l' ? w.charAt(0).toLowerCase() + w.slice(1) : w; });
   }
 
   /* ---------- условия показа ---------- */
@@ -122,7 +142,7 @@
     for (var k in w) {
       var need = w[k], have = fl[k];
       if (need && typeof need === 'object' && !Array.isArray(need)) {          // число: {gte, lte, eq}
-        var v = numVal(k);
+        var v = numVal(k, fl);
         if (v == null) return false;
         if (need.gte !== undefined && v < need.gte) return false;
         if (need.lte !== undefined && v > need.lte) return false;
@@ -188,7 +208,7 @@
       nv = e.set !== undefined ? e.set : (old == null ? 0 : old) + add;
       nv = Math.max(0, Math.min(10, nv));
       stats[k] = nv;
-      var dir = (e.add !== undefined && old != null && nv !== old) ? (nv > old ? 'up' : 'down') : null;
+      var dir = ((e.add !== undefined || e.dir) && old != null && nv !== old) ? (nv > old ? 'up' : 'down') : null;
       setInd(k, { name: S.bands[k].name, word: wordFor(k, nv) }, animate, dir);
       if (animate && dir) el.sr.textContent = S.bands[k].name + (dir === 'up' ? ' выросла. ' : ' упала. ') + wordFor(k, nv);
     });
@@ -216,6 +236,14 @@
      bg48 (4.8)  — пар из-под капота, прожекторы «дышат», ночная дымка
      bg48b (4.8) — то же для кадра «всё в масле»: пар из-под капота, прожекторы, дымка
      bg49 (4.9)  — лампа «дышит», мерцает экран ноутбука, пар над кружкой
+     bg51 (5.1)  — лампа над столом и холодный свет слева «дышат», пылинки в луче, дымка над верстаком
+     bg52 (5.2)  — лампа и синий свет «дышат», красная обводка 28–29 августа медленно пульсирует, дымка
+     bg53 (5.3)  — экран ноутбука с таймингом мерцает и раз в десять секунд «обновляется» (вспышка и бегущая строка), по стеклу окна стекают капли
+     bg54 (5.4)  — лампа над машиной «дышит» и иногда моргает, пылинки в луче, дымка у пола
+     bg55 (5.5)  — телефон на капоте пульсирует, как входящий звонок, фонарь и фары «дышат», низкий туман над парковкой
+     bg56 (5.6)  — пар из-под капота, лампа «дышит», ночная дымка
+     bg57 (5.7)  — пыль из-под колёс, блики на инее, утренняя дымка над землёй
+     bg58 (5.8)  — лампа и холодный свет «дышат», пылинки в луче, блики на плёнке упаковки и кузове
      drive       — ощущение езды (см. DRIVE ниже): bg12 (1.2), bg33 (3.3), bg37 (3.7) — «подъезжающая» дорога из салона; bg24 (2.4) — фон плывёт за машиной */
   var FX_BG = {
     bg11: ['rain', 'puff:smoke', 'headlights'], bg12: ['glass'], bg13: ['puff:smoke13', 'lights13', 'mist'],
@@ -225,7 +253,10 @@
     bg41: ['glow', 'screen'], bg42: ['mist', 'puff:exhaust42', 'glow'], bg43: ['puff:dust43'],
     bg44: ['mist', 'flicker', 'snow', 'glow'], bg45: ['glow', 'blink'], bg45b: ['mist', 'glow'],
     bg46: ['mist', 'glass', 'glow', 'blink'], bg47a: ['mist', 'snow', 'glint'], bg47b: ['mist', 'snow', 'glow'],
-    bg48: ['mist', 'puff:steam48', 'glow'], bg48b: ['mist', 'puff:steam48b', 'glow'], bg49: ['glow', 'screen', 'puff:steam49']
+    bg48: ['mist', 'puff:steam48', 'glow'], bg48b: ['mist', 'puff:steam48b', 'glow'], bg49: ['glow', 'screen', 'puff:steam49'],
+    bg51: ['mist', 'glow', 'snow'], bg52: ['mist', 'glow', 'blink'], bg53: ['glow', 'screen', 'refresh53', 'glass'],
+    bg54: ['mist', 'glow', 'snow', 'flicker'], bg55: ['mist', 'glow', 'blink'], bg56: ['mist', 'puff:steam56', 'glow'],
+    bg57: ['mist', 'puff:dust57', 'glint', 'glow'], bg58: ['mist', 'glow', 'glint', 'snow']
   };
   var RAIN = {
     bg11: { n: .2, sp: 1, len: 1, hl: true, rings: true, col: [190, 205, 228] },
@@ -238,7 +269,10 @@
     bg24: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.1, sc: 1, vx: -70, fast: 1, col: '170,185,205' },
     bg44: { poly: [[1050, 120], [1330, 120], [1420, 560], [880, 560]], n: .3, sc: .5, vx: 0, local: true, col: '255,235,190' },
     bg47a: { poly: [[0, 500], [1600, 500], [1600, 900], [0, 900]], n: 1.4, sc: .8, vx: -170, fast: 1, streak: 1, col: '238,208,152' },
-    bg47b: { poly: [[160, 210], [1440, 210], [1440, 640], [160, 640]], n: .35, sc: .5, vx: 0, local: true, col: '255,236,186' }
+    bg47b: { poly: [[160, 210], [1440, 210], [1440, 640], [160, 640]], n: .35, sc: .5, vx: 0, local: true, col: '255,236,186' },
+    bg51: { poly: [[790, 140], [1030, 140], [1160, 560], [620, 560]], n: .35, sc: .5, vx: 0, local: true, col: '255,215,160' },
+    bg54: { poly: [[540, 70], [690, 70], [820, 420], [430, 420]], n: .3, sc: .5, vx: 0, local: true, col: '255,230,180' },
+    bg58: { poly: [[820, 140], [960, 140], [1060, 520], [720, 520]], n: .3, sc: .5, vx: 0, local: true, col: '255,225,175' }
   };
   var MIST = {
     bg13: [{ y: 640, rx: 460, ry: 70, sp: 11, a: .075, col: [135, 155, 180], off: 0 }, { y: 560, rx: 520, ry: 60, sp: -7, a: .06, col: [120, 145, 175], off: 700 }, { y: 300, rx: 540, ry: 130, sp: 5, a: .05, col: [115, 140, 170], off: 300 }],
@@ -250,7 +284,14 @@
     bg47a: [{ y: 480, rx: 700, ry: 50, sp: 8, a: .10, col: [240, 215, 165], off: 0 }, { y: 600, rx: 760, ry: 40, sp: -6, a: .08, col: [235, 210, 160], off: 500 }],
     bg47b: [{ y: 540, rx: 700, ry: 60, sp: 6, a: .07, col: [235, 215, 165], off: 0 }, { y: 420, rx: 640, ry: 60, sp: -4, a: .05, col: [235, 215, 170], off: 400 }],
     bg48b: [{ y: 430, rx: 700, ry: 90, sp: 5, a: .08, col: [110, 125, 150], off: 0 }, { y: 560, rx: 800, ry: 60, sp: -4, a: .06, col: [100, 115, 140], off: 700 }],
-    bg48: [{ y: 430, rx: 700, ry: 90, sp: 5, a: .08, col: [110, 125, 150], off: 0 }, { y: 560, rx: 800, ry: 60, sp: -4, a: .06, col: [100, 115, 140], off: 700 }]
+    bg48: [{ y: 430, rx: 700, ry: 90, sp: 5, a: .08, col: [110, 125, 150], off: 0 }, { y: 560, rx: 800, ry: 60, sp: -4, a: .06, col: [100, 115, 140], off: 700 }],
+    bg51: [{ y: 560, rx: 640, ry: 70, sp: 6, a: .06, col: [200, 205, 210], off: 0 }, { y: 300, rx: 700, ry: 90, sp: -4, a: .05, col: [190, 200, 210], off: 600 }],
+    bg52: [{ y: 640, rx: 700, ry: 80, sp: 5, a: .06, col: [210, 200, 185], off: 300 }],
+    bg54: [{ y: 540, rx: 700, ry: 60, sp: 5, a: .06, col: [200, 205, 210], off: 0 }],
+    bg55: [{ y: 560, rx: 760, ry: 70, sp: 8, a: .09, col: [150, 170, 195], off: 0 }, { y: 700, rx: 800, ry: 60, sp: -5, a: .07, col: [140, 160, 185], off: 700 }, { y: 300, rx: 700, ry: 80, sp: 4, a: .06, col: [150, 170, 195], off: 300 }],
+    bg56: [{ y: 440, rx: 700, ry: 80, sp: 5, a: .07, col: [110, 125, 150], off: 0 }, { y: 600, rx: 800, ry: 60, sp: -4, a: .05, col: [100, 115, 140], off: 700 }],
+    bg57: [{ y: 520, rx: 700, ry: 50, sp: 7, a: .12, col: [225, 225, 230], off: 0 }, { y: 640, rx: 760, ry: 45, sp: -5, a: .09, col: [220, 222, 228], off: 600 }],
+    bg58: [{ y: 560, rx: 700, ry: 60, sp: 5, a: .06, col: [190, 195, 205], off: 0 }]
   };
   var GLOW = {
     bg14: [{ x: 1130, y: 235, r: 230, col: [255, 214, 150], a: .07, sp: .5 }],
@@ -265,26 +306,42 @@
     bg47b: [{ x: 600, y: 60, r: 600, col: [255, 235, 190], a: .05, sp: .35 }],
     bg48: [{ x: 92, y: 287, r: 260, col: [255, 190, 110], a: .12, sp: .9 }, { x: 1190, y: 307, r: 300, col: [255, 190, 110], a: .12, sp: 1.1 }],
     bg48b: [{ x: 90, y: 300, r: 260, col: [255, 190, 110], a: .12, sp: .9 }, { x: 1190, y: 305, r: 300, col: [255, 190, 110], a: .12, sp: 1.1 }],
-    bg49: [{ x: 420, y: 150, r: 420, col: [255, 170, 90], a: .10, sp: .7 }, { x: 625, y: 390, r: 330, col: [170, 210, 255], a: .04, sp: 1.3 }]
+    bg49: [{ x: 420, y: 150, r: 420, col: [255, 170, 90], a: .10, sp: .7 }, { x: 625, y: 390, r: 330, col: [170, 210, 255], a: .04, sp: 1.3 }],
+    bg51: [{ x: 910, y: 105, r: 340, col: [255, 185, 110], a: .10, sp: .7 }, { x: 60, y: 40, r: 300, col: [120, 190, 210], a: .05, sp: .5 }],
+    bg52: [{ x: 1280, y: 200, r: 340, col: [255, 200, 130], a: .09, sp: .6 }, { x: 830, y: 95, r: 260, col: [140, 190, 255], a: .06, sp: 1.1 }],
+    bg53: [{ x: 900, y: 420, r: 420, col: [255, 200, 120], a: .07, sp: .8 }, { x: 1290, y: 130, r: 300, col: [160, 190, 230], a: .05, sp: .4 }],
+    bg54: [{ x: 612, y: 60, r: 380, col: [255, 215, 150], a: .09, sp: .6 }],
+    bg55: [{ x: 636, y: 300, r: 300, col: [255, 205, 130], a: .09, sp: .8 }, { x: 520, y: 440, r: 170, col: [255, 245, 220], a: .06, sp: 1.3 }],
+    bg56: [{ x: 850, y: 95, r: 360, col: [255, 200, 130], a: .10, sp: .7 }],
+    bg57: [{ x: 700, y: 430, r: 560, col: [255, 225, 170], a: .05, sp: .35 }],
+    bg58: [{ x: 890, y: 120, r: 360, col: [255, 190, 120], a: .09, sp: .7 }, { x: 1330, y: 70, r: 300, col: [150, 200, 255], a: .05, sp: .5 }]
   };
   var FLICKER = {                                   // области, затемняемые при моргании света: [cx, cy, радиус, непрозрачность, растяжение x, растяжение y]
     bg23: [[770, 330, 640, .5], [765, 100, 150, .78], [930, 124, 560, .5, 1, .05]],
-    bg44: [[1230, 125, 520, .34], [1232, 102, 110, .55]]
+    bg44: [[1230, 125, 520, .34], [1232, 102, 110, .55]],
+    bg54: [[612, 70, 520, .3], [612, 45, 110, .5]]
   };
   var SCRN = {                                      // экраны ноутбуков: мерцание и бегущая строка развёртки
     bg41: { poly: [[140, 285], [331, 296], [333, 400], [144, 408]], col: '150,200,255', a: .06 },
-    bg49: { poly: [[447, 300], [797, 300], [797, 487], [447, 487]], col: '150,205,255', a: .05 }
+    bg49: { poly: [[447, 300], [797, 300], [797, 487], [447, 487]], col: '150,205,255', a: .05 },
+    bg53: { poly: [[803, 346], [1038, 336], [998, 500], [775, 490]], col: '200,225,255', a: .05 }
   };
   var BLINK = {                                     // индикаторы, мигающие по-настоящему: x, y, радиус, цвет, период, доля «горит», яркость, сдвиг фазы
     bg45: [{ x: 840, y: 469, r: 70, col: '255,190,60', per: 1.3, on: .55, a: .55 }, { x: 713, y: 437, r: 34, col: '255,150,50', per: 1.3, on: .55, a: .5 }, { x: 597, y: 413, r: 30, col: '255,150,50', per: 1.3, on: .55, a: .45 }, { x: 1000, y: 457, r: 34, col: '255,140,50', per: 1.3, on: .55, a: .45 }],
-    bg46: [{ x: 337, y: 716, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7 }, { x: 388, y: 720, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7, off: .55 }]
+    bg46: [{ x: 337, y: 716, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7 }, { x: 388, y: 720, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7, off: .55 }],
+    bg52: [{ x: 630, y: 556, r: 100, col: '255,70,50', per: 3.4, on: .55, a: .30 }],
+    bg55: [{ x: 603, y: 402, r: 46, col: '120,200,255', per: 1.5, on: .6, a: .5 }, { x: 603, y: 402, r: 18, col: '200,235,255', per: 1.5, on: .6, a: .5 }]
   };
   var GLINT = {                                     // блики на металле: x, y, размер, период, сдвиг
-    bg47a: [{ x: 672, y: 300, r: 34, per: 3.4, off: 0 }, { x: 655, y: 380, r: 28, per: 4.1, off: 1.3 }, { x: 713, y: 378, r: 22, per: 3.1, off: 2.2 }]
+    bg47a: [{ x: 672, y: 300, r: 34, per: 3.4, off: 0 }, { x: 655, y: 380, r: 28, per: 4.1, off: 1.3 }, { x: 713, y: 378, r: 22, per: 3.1, off: 2.2 }],
+    bg57: [{ x: 900, y: 700, r: 22, per: 3.6, off: 0 }, { x: 1120, y: 770, r: 20, per: 4.2, off: 1.1 }, { x: 1320, y: 700, r: 18, per: 3.1, off: 2 }, { x: 1000, y: 830, r: 24, per: 4.6, off: 2.7 },
+           { x: 1230, y: 620, r: 16, per: 3.3, off: .6 }, { x: 760, y: 760, r: 18, per: 3.9, off: 1.8 }, { x: 1450, y: 820, r: 22, per: 4.4, off: 3.1 }, { x: 600, y: 690, r: 16, per: 3.0, off: 2.4 }],
+    bg58: [{ x: 210, y: 440, r: 30, per: 4, off: 0 }, { x: 430, y: 520, r: 26, per: 4.8, off: 1.7 }, { x: 120, y: 560, r: 22, per: 3.8, off: 2.9 }, { x: 1100, y: 215, r: 24, per: 5, off: .8 }]
   };
   var GLASSCFG = {                                  // стекло, по которому стекают капли (по умолчанию — лобовое bg12)
     bg46: { poly: [[10, 110], [200, 62], [700, 42], [900, 42], [1400, 62], [1590, 110], [1585, 520], [1500, 620], [1100, 610], [500, 610], [100, 620], [10, 540]],
-      x0: 120, x1: 1480, y0: 90, y1: 400, ymax: 590, tr: '205,218,238', g: ['rgba(238,244,252,.9)', 'rgba(190,205,226,.55)', 'rgba(170,190,215,.15)'] }
+      x0: 120, x1: 1480, y0: 90, y1: 400, ymax: 590, tr: '205,218,238', g: ['rgba(238,244,252,.9)', 'rgba(190,205,226,.55)', 'rgba(170,190,215,.15)'] },
+    bg53: { poly: [[1125, 8], [1432, 8], [1432, 285], [1125, 292]], x0: 1140, x1: 1420, y0: 30, y1: 140, ymax: 280, tr: '205,218,238', g: ['rgba(238,244,252,.85)', 'rgba(190,205,226,.5)', 'rgba(170,190,215,.12)'] }
   };
   var fxC = document.getElementById('fx'), fxX = fxC && fxC.getContext ? fxC.getContext('2d') : null;
   var fxOn = false, fxRaf = 0, fxW = 0, fxH = 0, fxK = 1, fxLast = 0, fxOff = 0, fxKey = null, fxModes = [], fxImg = null;
@@ -302,7 +359,9 @@
     dust43:  { em: [[420, 470], [300, 495], [190, 480], [110, 470]], dx: -250, dy: -50, pw: .8, life: [2.4, 3.8], spawn: [.08, .15], r0: [30, 50], grow: 110, al: [.16, .28], col: [226, 196, 140], wob: [4, 22] },
     steam48: { em: [[900, 350], [820, 345], [960, 320]], dx: 70, dy: -250, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
     steam48b: { em: [[870, 372], [800, 366], [960, 352]], dx: 70, dy: -260, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
-    steam49: { em: [[1003, 498]], dx: -10, dy: -150, pw: .9, life: [2.2, 3.4], spawn: [.28, .45], r0: [4, 7], grow: 22, al: [.10, .17], col: [240, 236, 228], wob: [2, 10] }
+    steam49: { em: [[1003, 498]], dx: -10, dy: -150, pw: .9, life: [2.2, 3.4], spawn: [.28, .45], r0: [4, 7], grow: 22, al: [.10, .17], col: [240, 236, 228], wob: [2, 10] },
+    steam56: { em: [[820, 335], [760, 325], [880, 345]], dx: 40, dy: -250, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
+    dust57:  { em: [[740, 560], [780, 570], [820, 555]], dx: 320, dy: -60, pw: .8, life: [2.6, 4.2], spawn: [.09, .16], r0: [26, 40], grow: 130, al: [.14, .24], col: [226, 214, 196], wob: [4, 22] }
   };
   var GLASS12 = [[125, 150], [300, 48], [1300, 48], [1475, 150], [1385, 585], [1225, 622], [260, 622]];
   var SCREEN25 = [[691, 163], [1010, 156], [998, 334], [688, 324]], VP25 = [850, 262];
@@ -728,6 +787,19 @@
     x.globalAlpha = Math.max(0, Math.min(1, fade)); x.drawImage(dc, 0, 0, fxW, fxH); x.globalAlpha = 1;
     return true;
   }
+  /* bg53: страница live-тайминга «обновляется» раз в десять секунд — короткая вспышка экрана и бегущая сверху вниз строка */
+  var SCREEN53 = [[803, 346], [1038, 336], [998, 500], [775, 490]];
+  function refresh53Fx(x, m, tt) {
+    var ph = (tt + 6) % 10, D = .9;
+    if (ph > D) return;
+    var u = ph / D, a = Math.sin(Math.PI * u);
+    var xs = SCREEN53.map(function (p) { return p[0]; }), ys = SCREEN53.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(0, xs), x1 = Math.max.apply(0, xs), y0 = Math.min.apply(0, ys), y1 = Math.max.apply(0, ys);
+    x.save(); clipPoly(x, m, SCREEN53); x.globalCompositeOperation = 'lighter';
+    x.fillStyle = 'rgba(200,228,255,' + (.12 * a).toFixed(3) + ')'; x.fillRect(m.x + x0 * m.s, m.y + y0 * m.s, (x1 - x0) * m.s, (y1 - y0) * m.s);
+    x.fillStyle = 'rgba(255,255,255,' + (.22 * a).toFixed(3) + ')'; x.fillRect(m.x + x0 * m.s, m.y + (y0 + u * (y1 - y0)) * m.s, (x1 - x0) * m.s, 7 * m.s);
+    x.restore();
+  }
   /* bg33: красный огонёк видеорегистратора мигает */
   function led33Fx(x, m, tt) {
     var on = (tt % 1.6) < .22 ? 1 : .18, cx = m.x + 712 * m.s, cy = m.y + 119 * m.s, r = 16 * m.s;
@@ -769,6 +841,7 @@
       else if (n === 'screen') screenFx(x, m, tt);
       else if (n === 'blink') blinkFx(x, m, tt);
       else if (n === 'glint') glintFx(x, m, tt);
+      else if (n === 'refresh53') refresh53Fx(x, m, tt);
     }
   }
   function fxMove(on) { if (on === moveOn) return; moveOn = on; moveT = performance.now() / 1000; if (STATIC) moveOn = false; }
@@ -816,21 +889,30 @@
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
     if (b.big !== undefined) el.frame.classList.toggle('inds-big', !!b.big);
+    if (b.big === false && b.delta === undefined) showDelta(false);              // новая глава: отметка «было» от прошлой не должна висеть под маленькими индикаторами
     if (b.ind) Object.keys(b.ind).forEach(function (k) { setInd(k, b.ind[k], animate); });
-    if (b.chapStart) chap0 = { car: stats.car, trust: stats.trust };
+    if (b.chapStart) chap0 = { car: stats.car, trust: stats.trust, carW: indState.car.word, trustW: indState.trust.word };
     if (b.snap) snaps[b.snap] = { car: stats.car, trust: stats.trust };
     if (b.stat) applyStats(b.stat, animate);
+    if (b.repair) { var rv = repairCar(); if (rv != null) applyStats({ car: { set: rv, dir: true } }, animate); }   // капиталка (5.6): 🔧 возвращается на уровень до «Печор» с поправками
     if (b.delta !== undefined) showDelta(!!b.delta);
     if (b.pulse && animate && !STATIC) b.pulse.forEach(function (k) { var w = el.ind[k].word; w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); });
+  }
+  function wordLevel(k, w) {                          // место слова в полосе: чем выше, тем лучше; слова обнуления («кончилась», «потеряно») — ниже всех
+    if (S.zeroWords.indexOf(w) >= 0) return -1;
+    var ws = S.bands[k].words;
+    for (var q = 0; q < ws.length; q++) if (ws[q][2] === w) return ws.length - q;
+    return 0;
   }
   function showDelta(on) {                          // крупные индикаторы: что изменилось с начала главы
     el.frame.classList.toggle('inds-delta', on);
     ['car', 'trust'].forEach(function (k) {
       var w = el.ind[k].was; if (!w) return;
       if (!on || !chap0 || chap0[k] == null || stats[k] == null) { w.textContent = ''; return; }
-      var a = wordFor(k, chap0[k]), b = wordFor(k, stats[k]);
-      w.textContent = a === b ? '' : (stats[k] > chap0[k] ? '▲ было: ' : '▼ было: ') + a;   // без изменений — без подписи
-      w.setAttribute('data-dir', a === b ? '' : (stats[k] > chap0[k] ? 'up' : 'down'));
+      var a = chap0[k + 'W'] || wordFor(k, chap0[k]), b = indState[k].word || wordFor(k, stats[k]);
+      var up = wordLevel(k, b) > wordLevel(k, a);                                // направление — по словам, которые видит игрок («кончилась» ниже любого слова полосы)
+      w.textContent = a === b ? '' : (up ? '▲ было: ' : '▼ было: ') + a;   // без изменений — без подписи
+      w.setAttribute('data-dir', a === b ? '' : (up ? 'up' : 'down'));
     });
   }
   function replay(upTo) {                           // мгновенно восстановить фон/шапку/индикаторы/флаги по реплику upTo включительно
@@ -962,10 +1044,10 @@
     stopProtoAnim();
     var dv = derived(), ret = b.stage === 2 && dv.ret2 === 1;     // сход на «Печорах»: времени Алекса нет
     var t = ret ? null : dv.t[b.stage];
-    if (t == null && !ret) t = RallyModel.alexStageTime(b.stage, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
+    if (t == null && !ret && b.stage !== 3) t = RallyModel.alexStageTime(b.stage, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
     var stand = b.kind === 'standings', d, tAll = derived().t.slice();
     if (stand) {
-      for (var si = 0; si <= b.stage; si++) if (tAll[si] == null && !(si === 2 && ret)) tAll[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
+      for (var si = 0; si <= b.stage; si++) if (tAll[si] == null && si !== 3 && !(si === 2 && ret)) tAll[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
       d = standRows(b, tAll);
     } else d = protoRows(b.stage, t);
     el.proto.classList.toggle('st', stand);
@@ -1170,7 +1252,10 @@
     { key: 'k41', label: 'Сцена 4.1', opts: [['A', 'Верю, обе вещи правда'], ['B', 'Не вытянул'], ['V', 'Про трассу']] },
     { key: 'k42', label: 'Сцена 4.2', opts: [['A', 'Денис, сейчас'], ['B', 'После сезона']] },
     { key: 'k44', label: 'Сцена 4.4', opts: [['A', 'Ровнее, опоздаем на КВ'], ['B', 'Сколько успеешь'], ['V', 'Верю на слово (нужно 1.4-А)']] },
-    { key: 'k45', label: 'Сцена 4.5', opts: [['A', 'Дорожный темп'], ['B', 'На пределе']] }
+    { key: 'k45', label: 'Сцена 4.5', opts: [['A', 'Дорожный темп'], ['B', 'На пределе']] },
+    { key: 'k52', label: 'Сцена 5.2', opts: [['A', 'Срочная доставка (нужны деньги)'], ['B', 'Обычная доставка']] },
+    { key: 'k54', label: 'Сцена 5.4', opts: [['A', 'Не обещал'], ['B', 'Обещал победу']] },
+    { key: 'k55', label: 'Сцена 5.5', opts: [['A', 'Твоё решение'], ['B', 'Он тебя сменит'], ['V', 'Ты нужна на финале']] }
   ];
   function rbFlags() {                               // флаги, которые получились бы при выбранных в листе вариантах (для условий вариантов)
     var f = {};
