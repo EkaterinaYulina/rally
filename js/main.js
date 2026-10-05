@@ -26,12 +26,13 @@
   (function () {
     var host = $('portraits');
     Object.keys(S.speakers).forEach(function (k) {
-      var p = S.speakers[k].portrait;
-      if (!p || el.portraits[p]) return;
-      var im = new Image();
-      im.className = 'portrait'; im.alt = ''; im.draggable = false; im.decoding = 'async';
-      im.setAttribute('data-who', p); im.src = 'assets/' + p + '.webp';
-      host.appendChild(im); el.portraits[p] = im;
+      [S.speakers[k].portrait, S.speakers[k].portraitRed].forEach(function (p) {
+        if (!p || el.portraits[p]) return;
+        var im = new Image();
+        im.className = 'portrait'; im.alt = ''; im.draggable = false; im.decoding = 'async';
+        im.setAttribute('data-who', p); im.src = 'assets/' + p + '.webp';
+        host.appendChild(im); el.portraits[p] = im;
+      });
     });
   })();
 
@@ -262,7 +263,7 @@
      bg53 (5.3)  — экран ноутбука с таймингом мерцает и раз в десять секунд «обновляется» (вспышка и бегущая строка), по стеклу окна стекают капли
      bg54 (5.4)  — лампа над машиной «дышит» и иногда моргает, пылинки в луче, дымка у пола
      bg55 (5.5)  — телефон на капоте пульсирует, как входящий звонок, фонарь и фары «дышат», низкий туман над парковкой
-     bg56 (5.6)  — пар из-под капота, лампа «дышит», ночная дымка
+     bg56 (5.6)  — лампа «дышит», ночная дымка (пара нет: мотор собран)
      bg57 (5.7)  — пыль из-под колёс, блики на инее, утренняя дымка над землёй
      bg58 (5.8)  — лампа и холодный свет «дышат», пылинки в луче, блики на плёнке упаковки и кузове
      bg61 (6.1)  — ливень под навесом секретариата, круги на лужах, гирлянда «дышит», дымка
@@ -285,7 +286,7 @@
     bg46: ['mist', 'glass', 'glow', 'blink'], bg47a: ['mist', 'snow', 'glint'], bg47b: ['mist', 'snow', 'glow'],
     bg48: ['mist', 'puff:steam48', 'glow'], bg48b: ['mist', 'puff:steam48b', 'glow'], bg49: ['glow', 'screen', 'puff:steam49'],
     bg51: ['mist', 'glow', 'snow'], bg52: ['mist', 'glow', 'blink'], bg53: ['glow', 'screen', 'refresh53', 'glass'],
-    bg54: ['mist', 'glow', 'snow', 'flicker'], bg55: ['mist', 'glow', 'blink'], bg56: ['mist', 'puff:steam56', 'glow'],
+    bg54: ['mist', 'glow', 'snow', 'flicker'], bg55: ['mist', 'glow', 'blink'], bg56: ['mist', 'glow'],
     bg57: ['mist', 'puff:dust57', 'glint', 'glow'], bg58: ['mist', 'glow', 'glint', 'snow'],
     bg61: ['rain', 'mist', 'glow'], bg62: ['mist'], bg63: ['glow', 'glass'], bg64: ['mist', 'puff:steam64', 'glow'],
     bg65: ['snow', 'glow', 'puff:breath65'], bg66: ['mist', 'glass', 'glow'],
@@ -925,6 +926,8 @@
   if (fxC && window.ResizeObserver) new ResizeObserver(function () { if (fxOn) fxSize(); }).observe(fxC);
 
   var layers = [el.bgA, el.bgB], act = -1;
+  var KIT_RED = {}; (S.kitRed || []).forEach(function (b) { KIT_RED[b] = true; });
+  function portraitKey(sp) { return sp.portraitRed && KIT_RED[bgCur] ? sp.portraitRed : sp.portrait; }   // красный комплект по фону сцены
   function setBg(key, instant) {
     if (key === bgCur) return;
     var d = S.bgs[key], ni = act < 0 ? 0 : 1 - act, next = layers[ni], prev = act < 0 ? null : layers[act];
@@ -1019,7 +1022,8 @@
       el.name.textContent = nm; el.name.classList.add('swap'); lastName = nm;
     }
     el.dialog.classList.toggle('thought', b.kind === 'thought');
-    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.toggle('on', sp.portrait === k); });
+    el.dialog.classList.toggle('narr', b.kind === 'narr');           // реплики Алекса вне диалога — курсивом
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.toggle('on', portraitKey(sp) === k); });
     if (!(b.stat && !opts.instant)) el.sr.textContent = nm + '. ' + b.text;
     typeIn(b, el.shown, el.rest, el.hint, opts);
   }
@@ -1264,7 +1268,7 @@
       el.choice.appendChild(btn);
     });
     if (!document.querySelector('.portrait.on')) {           // при восстановлении: показать того, кто говорил перед выбором
-      for (var q = i - 1; q >= 0; q--) if (visible(q) && B[q].who) { var pp = S.speakers[B[q].who].portrait; if (pp) el.portraits[pp].classList.add('on'); break; }
+      for (var q = i - 1; q >= 0; q--) if (visible(q) && B[q].who) { var pp = portraitKey(S.speakers[B[q].who]); if (pp) el.portraits[pp].classList.add('on'); break; }
     }
     el.choice.hidden = false;
     el.sr.textContent = 'Выберите ответ. ' + vis.map(function (o, k) { return (k + 1) + '. ' + o.label; }).join('. ');
