@@ -37,6 +37,88 @@
   })();
 
   var i = 0, flags = {}, mode = 'beat';            // beat | choice | cut
+  /* ---------- музыка: треки из S.tracks, поле music у реплики ('id' — включить, 'stop' — погасить) ----------
+     Web Audio API, а не <audio>: по кругу без щелчка на стыке, точные плавные входы и выходы, и на Android не появляется
+     плеер страницы в панели уведомлений (пункт чек-листа Яндекс Игр). Звук стартует после первого нажатия игрока
+     (политика автовоспроизведения) и замолкает: при смене вкладки и потере фокуса, на паузе платформы (VN.setPaused:
+     game_api_pause / реклама), по кнопке звука и клавише S. Состояние пересчитывается при восстановлении и прыжках (replay). */
+  var MUS = { want: null, unlocked: false, muted: false, hidden: false, paused: false, ctx: null, trk: {}, fadeMs: 1400 };
+  try { MUS.muted = localStorage.getItem('vn_sound') === 'off'; } catch (e) {}
+  function musCtx() {
+    if (MUS.ctx) return MUS.ctx;
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    try { MUS.ctx = new AC(); } catch (e) { MUS.ctx = null; }
+    return MUS.ctx;
+  }
+  function musTrack(id) {                              // создаёт запись трека и грузит файл (один раз)
+    var t = (S.tracks || {})[id], c = musCtx(); if (!t || !c) return null;
+    var k = MUS.trk[id];
+    if (k) return k;
+    k = MUS.trk[id] = { id: id, vol: t.vol == null ? 0.6 : t.vol, buf: null, src: null, gain: c.createGain(), tm: 0 };
+    k.gain.gain.value = 0; k.gain.connect(c.destination);
+    fetch(t.src).then(function (r) { return r.arrayBuffer(); }).then(function (ab) {
+      return new Promise(function (ok, bad) { c.decodeAudioData(ab, ok, bad); });
+    }).then(function (buf) { k.buf = buf; musSync(); }).catch(function () {
+      /* index.html открыт как файл (file://): браузер запрещает fetch и чтение для Web Audio — играем обычным <audio>.
+         Так бывает только при локальной проверке; на Яндекс Играх игра открывается по https и идёт через Web Audio */
+      k.el = new Audio(t.src); k.el.loop = true; k.el.preload = 'auto'; k.el.volume = 0; musSync();
+    });
+    return k;
+  }
+  function musElFade(k, to, sec, id) {               // плавная громкость обычного <audio> (запасной путь)
+    var e = k.el, from = e.volume, t0 = performance.now(); clearInterval(k.fi);
+    if (to > 0 && e.paused) { var pr = e.play(); if (pr && pr.catch) pr.catch(function () {}); }
+    k.fi = setInterval(function () {
+      var p = Math.min(1, (performance.now() - t0) / (sec * 1000)); e.volume = Math.max(0, Math.min(1, from + (to - from) * p));
+      if (p >= 1) {
+        clearInterval(k.fi);
+        if (to === 0) { e.pause(); if (id !== MUS.want) { try { e.currentTime = 0; } catch (x) {} } }
+      }
+    }, 40);
+  }
+  function musSync(ms) {
+    if (ms != null) MUS.fadeMs = ms;
+    var c = musCtx(); if (!c) return;
+    if (MUS.want) musTrack(MUS.want);
+    var play = MUS.unlocked && !MUS.muted && !MUS.hidden && !MUS.paused, fade = Math.max(0.04, MUS.fadeMs / 1000);
+    Object.keys(MUS.trk).forEach(function (id) {
+      var k = MUS.trk[id], on = id === MUS.want && play, g = k.gain.gain, now = c.currentTime;
+      clearTimeout(k.tm);
+      if (k.el) { musElFade(k, on ? k.vol : 0, fade, id); return; }          // запасной путь для file://
+      if (on) {
+        if (c.state !== 'running') c.resume();
+        if (!k.src && k.buf) {
+          k.src = c.createBufferSource(); k.src.buffer = k.buf; k.src.loop = true; k.src.connect(k.gain); k.src.start(0);
+        }
+        g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(k.vol, now + fade);
+      } else {
+        g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + fade);
+        k.tm = setTimeout(function () {
+          if (id !== MUS.want && k.src) { try { k.src.stop(); } catch (e) {} k.src.disconnect(); k.src = null; }   // снят — с начала при следующем запуске
+          if (!(MUS.want && play) && c.state === 'running') c.suspend();                                                  // тишина — устройство вывода не держим
+        }, fade * 1000 + 60);
+      }
+    });
+  }
+  function setMusic(v, instant) {
+    MUS.want = (v && v !== 'stop') ? v : null;
+    var tr = MUS.want && (S.tracks || {})[MUS.want];
+    musSync(instant ? 40 : (v === 'stop' ? 900 : ((tr && tr.fadeIn) || 1400)));      // смена трека — кроссфейд
+  }
+  function musUnlock() { if (MUS.unlocked) return; MUS.unlocked = true; musSync(1400); }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, musUnlock, { passive: true }); });
+  function musFocus() { MUS.hidden = document.hidden || !document.hasFocus(); musSync(MUS.hidden ? 200 : 800); }
+  document.addEventListener('visibilitychange', musFocus); window.addEventListener('blur', musFocus); window.addEventListener('focus', musFocus);
+  window.VN = window.VN || {};
+  window.VN.setPaused = function (on) { MUS.paused = !!on; musSync(on ? 100 : 600); };         // вызывать из game_api_pause / game_api_resume и вокруг рекламы
+  function setMuted(on) {
+    MUS.muted = on; try { localStorage.setItem('vn_sound', on ? 'off' : 'on'); } catch (e) {}
+    var b = document.getElementById('sndbtn');
+    if (b) { b.setAttribute('aria-pressed', on ? 'false' : 'true'); b.setAttribute('aria-label', on ? 'Звук выключен' : 'Звук включён'); }
+    musSync(350);
+  }
+  (function () { var b = document.getElementById('sndbtn'); if (!b) return; setMuted(MUS.muted); b.addEventListener('click', function () { MUS.unlocked = true; setMuted(!MUS.muted); b.blur(); }); })();
+
   var typing = false, timer = null, pos = 0, ended = false, autoT = null, cutAt = 0, bgCur = null, cutOpen = false, chapHold = false, chapT = null;
   var stats = { car: null, trust: null };
   var rbOpen = false, rbSel = {};
@@ -950,6 +1032,7 @@
   function applyProps(b, animate) {
     if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
     if (b.hud) setHud(b.hud);
+    if (b.music !== undefined) setMusic(b.music, !animate);
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
     if (b.big !== undefined) el.frame.classList.toggle('inds-big', !!b.big);
@@ -981,7 +1064,7 @@
   }
   function replay(upTo) {                           // мгновенно восстановить фон/шапку/индикаторы/флаги по реплику upTo включительно
     stats = { car: null, trust: null }; indState = { car: {}, trust: {} };
-    snaps = {}; dampPending = false; chap0 = null;
+    snaps = {}; dampPending = false; chap0 = null; MUS.want = null;
     el.frame.classList.remove('inds-big', 'inds-delta');
     for (var n = 0; n <= upTo; n++) {
       if (!visible(n)) continue;
@@ -1022,7 +1105,6 @@
       el.name.textContent = nm; el.name.classList.add('swap'); lastName = nm;
     }
     el.dialog.classList.toggle('thought', b.kind === 'thought');
-    el.dialog.classList.toggle('narr', b.kind === 'narr');           // реплики Алекса вне диалога — курсивом
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.toggle('on', portraitKey(sp) === k); });
     if (!(b.stat && !opts.instant)) el.sr.textContent = nm + '. ' + b.text;
     typeIn(b, el.shown, el.rest, el.hint, opts);
@@ -1224,6 +1306,7 @@
     mode = 'cut'; cutAt = performance.now();
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
     if (b.sfx) window.dispatchEvent(new CustomEvent('vn:sfx', { detail: b.sfx }));   // звук подключим позже
+    if (b.music !== undefined) setMusic(b.music);
     if (b.fx === 'crash') {
       openCut(true);
       if (!STATIC) { el.frame.classList.remove('shake'); void el.frame.offsetWidth; el.frame.classList.add('shake'); }
@@ -1475,6 +1558,7 @@
         opts[idx].focus(); return;
       }
     }
+    if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && !e.altKey) { MUS.unlocked = true; setMuted(!MUS.muted); return; }   // S — звук вкл/выкл (M занята маршрутным листом)
     if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); advance(); }
   });
@@ -1509,7 +1593,7 @@
   /* фоны подгружаем заранее, чтобы смена кадра не мигала */
   setTimeout(function () { Object.keys(S.bgs).forEach(function (k) { var im = new Image(); im.src = S.bgs[k].src; }); }, 600);
 
-  window.__vn = { bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
+  window.__vn = { music: function () { var o = { want: MUS.want, unlocked: MUS.unlocked, muted: MUS.muted, hidden: MUS.hidden, paused: MUS.paused, ctx: MUS.ctx && MUS.ctx.state, tracks: {} }; Object.keys(MUS.trk).forEach(function (k) { var t = MUS.trk[k]; o.tracks[k] = t.el ? { fallback: true, paused: t.el.paused, vol: +t.el.volume.toFixed(3) } : { ready: !!t.buf, started: !!t.src, gain: +t.gain.gain.value.toFixed(3) }; }); return o; }, bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
                   derived: function () { return derived(); }, snaps: function () { return snaps; },
                   protocol: function () { return Array.prototype.map.call(el.protoBody.querySelectorAll('tr'), function (r) { return Array.prototype.map.call(r.children, function (c) { return c.textContent; }); }); },
                   mode: function () { return mode; }, ended: function () { return ended; }, ending: function () { return endKey(); },

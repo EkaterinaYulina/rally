@@ -132,6 +132,24 @@ body { position: fixed; inset: 0; }
 }
 .ind-word::before { content: ' '; }          /* на десктопе — одна строка: «Машина ЕЩЁ ПОХОДИТ» */
 
+.hud-btns { display: flex; align-items: center; gap: calc(12 * var(--u)); flex: none; }
+.sndbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: calc(46 * var(--u)); height: calc(46 * var(--u)); min-width: 36px; min-height: 36px; padding: 0;
+  color: var(--amber); background: rgba(16, 15, 12, .92);
+  border: 1px solid rgba(255, 171, 0, .55); border-radius: calc(6 * var(--u));
+  box-shadow: 0 0 calc(18 * var(--u)) rgba(255, 171, 0, .14);
+  cursor: pointer; flex: none;
+  transition: background .18s, border-color .18s, box-shadow .18s, transform .12s, color .18s;
+}
+.sndbtn-ico { width: calc(24 * var(--u)); height: calc(24 * var(--u)); min-width: 18px; min-height: 18px; }
+.sndbtn .snd-off { display: none; }
+.sndbtn[aria-pressed="false"] { color: var(--ink-2); border-color: rgba(255, 255, 255, .22); box-shadow: none; }
+.sndbtn[aria-pressed="false"] .snd-wave { display: none; }
+.sndbtn[aria-pressed="false"] .snd-off { display: inline; }
+.sndbtn:hover { background: rgba(255, 171, 0, .14); border-color: var(--amber); box-shadow: 0 0 calc(26 * var(--u)) rgba(255, 171, 0, .34); color: #ffc13b; }
+.sndbtn:active { transform: scale(.97); }
+.sndbtn:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .roadbook {
   display: inline-flex; align-items: center; gap: calc(12 * var(--u));
   height: calc(46 * var(--u)); padding: 0 calc(18 * var(--u));
@@ -185,8 +203,6 @@ body { position: fixed; inset: 0; }
 .dlg-text .rest { opacity: 0; }
 .dialog { transition: opacity .2s; }
 .dialog.away { opacity: 0; pointer-events: none; }
-.dialog.thought .dlg-text { font-style: italic; color: var(--ink-2); }
-.dialog.narr .dlg-text { font-style: italic; }
 .dlg-hint {
   margin-top: auto; align-self: flex-end; padding-top: calc(10 * var(--u));
   font: 400 calc(16 * var(--u))/1.2 var(--f-body); color: var(--ink-2);
@@ -369,7 +385,7 @@ body { position: fixed; inset: 0; }
 .proto-tbl tr.me td:first-child { box-shadow: inset calc(5 * var(--u)) 0 0 var(--amber); }
 .proto-tbl tr.me td.c-pl, .proto-tbl tr.me td.c-gap { color: var(--amber); }
 .proto-tbl tr.off td { color: rgba(236, 230, 214, .42); }
-.proto-tbl tr.off td.c-gap { font-style: italic; font-family: var(--f-body); font-weight: 400; }
+.proto-tbl tr.off td.c-gap { font-family: var(--f-body); font-weight: 400; }
 .proto-tbl tr.me.off td { color: var(--amber); font-weight: 700; }
 .proto-tbl tr.me.off td.c-gap { font-weight: 400; }
 .proto-tbl tr.proto-skip td { text-align: center; color: rgba(236, 230, 214, .4); letter-spacing: .4em; padding: calc(2 * var(--u)) 0; font-size: calc(16 * var(--u)); border-bottom: 0; }
@@ -446,6 +462,9 @@ body { position: fixed; inset: 0; }
   .ind-name { font-size: max(11px, 11 * var(--u)); letter-spacing: .01em; font-weight: 400; }
   .ind-word { font-size: max(10.5px, 11 * var(--u)); }
   .ind-word::before { content: none; }
+  .hud-btns { gap: 8px; }
+  .sndbtn { width: 44px; height: 44px; border-radius: 8px; }
+  .sndbtn-ico { width: 22px; height: 22px; }
   .roadbook { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 8px; }
   .roadbook-txt { display: none; }
   .roadbook-ico { width: 22px; height: 22px; }
