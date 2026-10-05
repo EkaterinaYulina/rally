@@ -1,4 +1,4 @@
-/* «Путь» — пролог и главы 2–5: реплики, портреты, шапка, фоны, выбор, числа индикаторов, карточка главы, протокол этапа (модель сезона), автосохранение. */
+/* «Путь» — пролог и главы 2–6: реплики, портреты, шапка, фоны, выбор, числа индикаторов, карточка главы, протокол этапа (модель сезона), автосохранение. */
 (function () {
   'use strict';
   var S = window.STORY, B = S.beats;
@@ -46,6 +46,7 @@
   /* ---------- модель сезона: места Алекса считаются по снимкам 🤝/🔧 на старте этапа ---------- */
   var CYR = { A: 'А', B: 'Б', V: 'В' };               // в сценарии варианты латиницей, в модели — кириллицей
   var ORD = ['', 'Первое', 'Второе', 'Третье', 'Четвёртое', 'Пятое', 'Шестое', 'Седьмое', 'Восьмое', 'Девятое', 'Десятое', 'Одиннадцатое', 'Двенадцатое', 'Тринадцатое', 'Четырнадцатое', 'Пятнадцатое', 'Шестнадцатое', 'Семнадцатое', 'Восемнадцатое', 'Девятнадцатое', 'Двадцатое'];
+  var ORDM = ['', 'первом', 'втором', 'третьем', 'четвёртом', 'пятом', 'шестом', 'седьмом', 'восьмом', 'девятом', 'десятом', 'одиннадцатом', 'двенадцатом', 'тринадцатом', 'четырнадцатом', 'пятнадцатом', 'шестнадцатом', 'семнадцатом', 'восемнадцатом', 'девятнадцатом', 'двадцатом'];   // предложный падеж: «на третьем месте»
   var dKey = null, dVal = null;
   function isRet2() {                                // сход на «Печорах» (4.5Б): не хранится флагом, считается по снимку 🔧 перед 4.5 — не «застревает» при прыжках по маршрутному листу
     return flags.k45 === 'B' && !!snaps.s45 && (snaps.s45.car - 4) <= 3;
@@ -59,16 +60,24 @@
     /* снимок для формулы времени — как в калибровке (rally_tables_calibration.py): Ильмень — перед 3.4; Рускеала — после эффекта выбора 3.7 (🤝),
        до износа; Печоры — после выбора 4.4 (🔧 +2), до последствий 4.5; Урал — на старте 5.7, после капиталки, выбора 5.5 и бонусов 5.2/5.4, до износа.
        Разовая потеря 3.7-А смотрит на 🤝 до выбора (снимок s1). «Горный край» (этап 3): Алекс не заявлен — времени нет. */
-    var KEY = ['s0', 's1b', 's45', null, 's4'];
-    return [0, 1, 2, 3, 4].map(function (s) {
+    var KEY = ['s0', 's1b', 's45', null, 's4', 's5'];
+    return [0, 1, 2, 3, 4, 5].map(function (s) {
       if (s === 3) return null;
       var sn = snaps[KEY[s]]; if (!sn) return null;
       if (s === 2 && isRet2()) return null;
+      if (s === 5) {                                 // финал: снимок на старте 6.4 (после эффекта 6.3). Риск 6.6-Б с запасом даёт −1,5 с; без запаса — сход, времени нет
+        var risk = flags.k66 === 'B';
+        if (risk && !gate6ok(sn)) return null;
+        return RallyModel.alexStageTime(5, sn.trust, sn.car, { choices: risk ? { '6.6': 'Б' } : {}, flags: risk ? ['риск_прошёл'] : [], trust: sn.trust });
+      }
       return RallyModel.alexStageTime(s, sn.trust, sn.car, { choices: s === 4 ? {} : ch, flags: [], trust: (s === 1 && snaps.s1) ? snaps.s1.trust : sn.trust });
     });
   }
   /* Общий зачёт после этапов 0..upto. Одинаковые очки — по лучшим результатам (как в регламенте): у кого выше места на этапах, тот впереди. */
-  function seasonRanked(upto, t) {
+  function gate6ok(sn) {                             // ворота 6.6: 🤝 ≥ 7 и 🔧 ≥ 7; при {принял_обе_правды} достаточно 🔧 ≥ 6 (как в калибровке)
+    return !!sn && sn.trust >= 7 && (sn.car >= 7 || (sn.car >= 6 && !!flags.принял_обе_правды));
+  }
+  function seasonRanked(upto, t, byNum) {
     var per = {};
     for (var s = 0; s <= upto; s++) {
       var res = RallyModel.placeOnStage(s, t[s]);
@@ -81,6 +90,7 @@
     arr.forEach(function (r) { r.places.sort(function (a, b) { return a - b; }); });
     arr.sort(function (a, b) {
       if (b.pts !== a.pts) return b.pts - a.pts;
+      if (byNum) return a.n - b.n;                    // итоговый зачёт сезона: при равных очках — младший номер (правило калибровки; у Алекса №4)
       for (var i = 0; i < Math.max(a.places.length, b.places.length); i++) {
         var pa = a.places[i] == null ? 99 : a.places[i], pb = b.places[i] == null ? 99 : b.places[i];
         if (pa !== pb) return pa - pb;
@@ -90,17 +100,19 @@
     arr.forEach(function (r, i) { r.place = i + 1; });
     return arr;
   }
-  function derived() {                               // place0..place2, place4, rank1..rank4, ret2 — по модели; null, пока данных нет
-    var key = JSON.stringify([snaps.s0 || 0, snaps.s1 || 0, snaps.s1b || 0, snaps.s45 || 0, snaps.s4 || 0, flags.k33 || 0, flags.k37 || 0, flags.k44 || 0, flags.k45 || 0]);
+  function derived() {                               // place0..place2, place4, place5, rank1..rank5, ret2, gate6, crash6 — по модели; null, пока данных нет
+    var key = JSON.stringify([snaps.s0 || 0, snaps.s1 || 0, snaps.s1b || 0, snaps.s45 || 0, snaps.s4 || 0, snaps.s5 || 0, flags.k33 || 0, flags.k37 || 0, flags.k44 || 0, flags.k45 || 0, flags.k66 || 0, flags.принял_обе_правды || 0]);
     if (key === dKey) return dVal;
-    var t = alexTimes(), out = { place0: null, place1: null, place2: null, place4: null, rank1: null, rank2: null, rank3: null, rank4: null, ret2: snaps.s45 ? (isRet2() ? 1 : 0) : null, t: t };
-    var pl = [0, 1, 2, 3, 4].map(function (s) { return t[s] != null ? RallyModel.placeOnStage(s, t[s]) : null; });
+    var t = alexTimes(), out = { place0: null, place1: null, place2: null, place4: null, place5: null, rank1: null, rank2: null, rank3: null, rank4: null, rank5: null, ret2: snaps.s45 ? (isRet2() ? 1 : 0) : null,
+      gate6: snaps.s5 ? (gate6ok(snaps.s5) ? 1 : 0) : null, crash6: snaps.s5 ? ((flags.k66 === 'B' && !gate6ok(snaps.s5)) ? 1 : 0) : null, t: t };
+    var pl = [0, 1, 2, 3, 4, 5].map(function (s) { return t[s] != null ? RallyModel.placeOnStage(s, t[s]) : null; });
     if (pl[0]) out.place0 = pl[0].alex.place;
     if (pl[1]) out.place1 = pl[1].alex.place;
     if (pl[2]) out.place2 = pl[2].alex.place;
     if (pl[4]) out.place4 = pl[4].alex.place;
+    if (pl[5]) out.place5 = pl[5].alex.place;
     function rankAfter(upto) {                         // место Алекса в общем зачёте после этапов 0..upto (null — у Алекса нет строки)
-      var rk = seasonRanked(upto, t);
+      var rk = seasonRanked(upto, t, upto === 5);
       for (var q = 0; q < rk.length; q++) if (rk[q].n === 4) return { r: q + 1, pts: rk[q].pts };
       return null;
     }
@@ -109,8 +121,15 @@
       var r2 = rankAfter(2); if (r2) { out.rank2 = r2.r; out.pts2 = r2.pts; }
       var r3 = rankAfter(3); if (r3) { out.rank3 = r3.r; out.pts3 = r3.pts; }
       if (pl[4]) { var r4 = rankAfter(4); if (r4) { out.rank4 = r4.r; out.pts4 = r4.pts; } }
+      if (pl[4] && snaps.s5) { var r5 = rankAfter(5); if (r5) { out.rank5 = r5.r; out.pts5 = r5.pts; } }    // итог сезона (при сходе на финале — без очков за него)
     }
     dKey = key; dVal = out; return out;
+  }
+  function endKey() {                               // концовка по итоговой таблице сезона: В → А → Б → Г (null, пока финал не рассчитан)
+    var dv = derived();
+    if (dv.crash6 == null) return null;
+    if (dv.crash6 === 0 && dv.rank5 == null) return null;
+    return RallyModel.decideEnding({ retiredAt66: dv.crash6 === 1, alexSeasonRank: dv.rank5 });
   }
   function blk52(fl) {                               // 5.2-А («срочная доставка») заблокирована: нет денег. Нужны оба флага — штраф на ознакомлении (3.3-А) и резина за свои (3.6-А); при молчании (1.4-Б) хватает одного
     var a = fl.k33 === 'A', b = fl.k36 === 'A', m = fl.k14 === 'B';
@@ -119,7 +138,7 @@
   function numVal(k, fl) {
     if (k === 'trust' || k === 'car') return stats[k];
     if (k === 'blk52') return blk52(fl || flags);
-    if (k === 'place0' || k === 'place1' || k === 'place2' || k === 'place4' || k === 'rank1' || k === 'rank2' || k === 'rank3' || k === 'rank4' || k === 'ret2') return derived()[k];
+    if (k === 'place0' || k === 'place1' || k === 'place2' || k === 'place4' || k === 'rank1' || k === 'rank2' || k === 'rank3' || k === 'rank4' || k === 'ret2' || k === 'place5' || k === 'rank5' || k === 'gate6' || k === 'crash6') return derived()[k];
     return null;
   }
   /* 🔧 после капиталки (5.6): значение на входе в 4.5, минус износ (0 при {сберегли_мотор}, 3 при сходе, иначе 1); сверху 5.2-А (+2) и 5.4-А (+1, кроме {молчание}) */
@@ -130,8 +149,10 @@
     if (flags.k54 === 'A' && flags.k14 !== 'B') v += 1;
     return Math.max(0, Math.min(10, v));
   }
-  function tpl(text) {                                // {{ord0}}, {{ord1}}, {{ord2}}, {{ord4}} — порядковое числительное места на этапе («Пятое»); {{ordr1}}…{{ordr4}} — места в общем зачёте после этапа (ordl — со строчной)
-    return text.replace(/\{\{ord([0124])\}\}/g, function (m, d) { var p = derived()['place' + d]; return ORD[p] || (p + '-е'); })
+  function tpl(text) {                                // {{ord0}}, {{ord1}}, {{ord2}}, {{ord4}}, {{ord5}} — порядковое числительное места на этапе («Пятое»); {{ordr1}}…{{ordr4}} — места в общем зачёте после этапа (ordl — со строчной)
+    return text.replace(/\{\{ordm5\}\}/g, function () { var p = derived().place5; return ORDM[p] || (p + '-м'); })
+               .replace(/\{\{ord([01245])\}\}/g, function (m, d) { var p = derived()['place' + d]; return ORD[p] || (p + '-е'); })
+               .replace(/\{\{ordp5\}\}/g, function () { var p = derived().place5, w = ORD[p] || (p + '-е'); return w.charAt(0).toLowerCase() + w.slice(1); })
                .replace(/\{\{ord([rl])([1234])\}\}/g, function (m, k, d) { var p = derived()['rank' + d], w = ORD[p] || (p + '-е'); return k === 'l' ? w.charAt(0).toLowerCase() + w.slice(1) : w; });
   }
 
@@ -244,6 +265,15 @@
      bg56 (5.6)  — пар из-под капота, лампа «дышит», ночная дымка
      bg57 (5.7)  — пыль из-под колёс, блики на инее, утренняя дымка над землёй
      bg58 (5.8)  — лампа и холодный свет «дышат», пылинки в луче, блики на плёнке упаковки и кузове
+     bg61 (6.1)  — ливень под навесом секретариата, круги на лужах, гирлянда «дышит», дымка
+     bg62 (6.2)  — дрейфующий лесной туман за стеклом
+     bg63 (6.3)  — лампа «дышит», по оконному стеклу стекает ледяная морось
+     bg64 (6.4)  — пар от прогретой машины, дымка над сервис-парком, свет палаток и фар «дышит»
+     bg65 (6.5)  — снег, свет фар «дышит», пар дыхания судьи
+     bg66 (6.6)  — капли и дымка на лобовом стекле, свет фар и приборов «дышит»
+     bg67a / bg67b (6.7А / 6.7Б) — снегопад, позёмка у земли, блики на кубке и бутылке
+     bg67g (6.7Г) — лёгкий снег, зарево над горизонтом и свет у баннера «дышат»
+     bg67v (6.7В) — снег, аварийные огни машины моргают, красный отсвет на снегу
      drive       — ощущение езды (см. DRIVE ниже): bg12 (1.2), bg33 (3.3), bg37 (3.7) — «подъезжающая» дорога из салона; bg24 (2.4) — фон плывёт за машиной */
   var FX_BG = {
     bg11: ['rain', 'puff:smoke', 'headlights'], bg12: ['glass'], bg13: ['puff:smoke13', 'lights13', 'mist'],
@@ -256,11 +286,15 @@
     bg48: ['mist', 'puff:steam48', 'glow'], bg48b: ['mist', 'puff:steam48b', 'glow'], bg49: ['glow', 'screen', 'puff:steam49'],
     bg51: ['mist', 'glow', 'snow'], bg52: ['mist', 'glow', 'blink'], bg53: ['glow', 'screen', 'refresh53', 'glass'],
     bg54: ['mist', 'glow', 'snow', 'flicker'], bg55: ['mist', 'glow', 'blink'], bg56: ['mist', 'puff:steam56', 'glow'],
-    bg57: ['mist', 'puff:dust57', 'glint', 'glow'], bg58: ['mist', 'glow', 'glint', 'snow']
+    bg57: ['mist', 'puff:dust57', 'glint', 'glow'], bg58: ['mist', 'glow', 'glint', 'snow'],
+    bg61: ['rain', 'mist', 'glow'], bg62: ['mist'], bg63: ['glow', 'glass'], bg64: ['mist', 'puff:steam64', 'glow'],
+    bg65: ['snow', 'glow', 'puff:breath65'], bg66: ['mist', 'glass', 'glow'],
+    bg67a: ['mist', 'snow', 'glint'], bg67b: ['mist', 'snow', 'glint'], bg67g: ['mist', 'snow', 'glow'], bg67v: ['mist', 'snow', 'glow', 'blink']
   };
   var RAIN = {
     bg11: { n: .2, sp: 1, len: 1, hl: true, rings: true, col: [190, 205, 228] },
-    bg14: { n: .16, sp: .6, len: .7, hl: false, rings: false, col: [205, 212, 220], a: .8 }
+    bg14: { n: .16, sp: .6, len: .7, hl: false, rings: false, col: [205, 212, 220], a: .8 },
+    bg61: { n: .5, sp: 1.05, len: 1.1, hl: false, rings: true, col: [205, 215, 230], a: .9 }
   };
   var SNOW = {
     bg22: { poly: [[0, 0], [1058, 0], [1088, 612], [380, 900], [0, 900]], n: 1, sc: 1, vx: 0 },
@@ -272,7 +306,12 @@
     bg47b: { poly: [[160, 210], [1440, 210], [1440, 640], [160, 640]], n: .35, sc: .5, vx: 0, local: true, col: '255,236,186' },
     bg51: { poly: [[790, 140], [1030, 140], [1160, 560], [620, 560]], n: .35, sc: .5, vx: 0, local: true, col: '255,215,160' },
     bg54: { poly: [[540, 70], [690, 70], [820, 420], [430, 420]], n: .3, sc: .5, vx: 0, local: true, col: '255,230,180' },
-    bg58: { poly: [[820, 140], [960, 140], [1060, 520], [720, 520]], n: .3, sc: .5, vx: 0, local: true, col: '255,225,175' }
+    bg58: { poly: [[820, 140], [960, 140], [1060, 520], [720, 520]], n: .3, sc: .5, vx: 0, local: true, col: '255,225,175' },
+    bg65: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: .9, sc: 1, vx: -35, col: '205,218,238' },
+    bg67a: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.3, sc: 1, vx: -55, col: '215,225,240' },
+    bg67b: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.3, sc: 1, vx: -55, col: '215,225,240' },
+    bg67g: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: .6, sc: 1, vx: -25, col: '215,225,240' },
+    bg67v: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.0, sc: 1, vx: -40, col: '205,218,238' }
   };
   var MIST = {
     bg13: [{ y: 640, rx: 460, ry: 70, sp: 11, a: .075, col: [135, 155, 180], off: 0 }, { y: 560, rx: 520, ry: 60, sp: -7, a: .06, col: [120, 145, 175], off: 700 }, { y: 300, rx: 540, ry: 130, sp: 5, a: .05, col: [115, 140, 170], off: 300 }],
@@ -291,7 +330,15 @@
     bg55: [{ y: 560, rx: 760, ry: 70, sp: 8, a: .09, col: [150, 170, 195], off: 0 }, { y: 700, rx: 800, ry: 60, sp: -5, a: .07, col: [140, 160, 185], off: 700 }, { y: 300, rx: 700, ry: 80, sp: 4, a: .06, col: [150, 170, 195], off: 300 }],
     bg56: [{ y: 440, rx: 700, ry: 80, sp: 5, a: .07, col: [110, 125, 150], off: 0 }, { y: 600, rx: 800, ry: 60, sp: -4, a: .05, col: [100, 115, 140], off: 700 }],
     bg57: [{ y: 520, rx: 700, ry: 50, sp: 7, a: .12, col: [225, 225, 230], off: 0 }, { y: 640, rx: 760, ry: 45, sp: -5, a: .09, col: [220, 222, 228], off: 600 }],
-    bg58: [{ y: 560, rx: 700, ry: 60, sp: 5, a: .06, col: [190, 195, 205], off: 0 }]
+    bg58: [{ y: 560, rx: 700, ry: 60, sp: 5, a: .06, col: [190, 195, 205], off: 0 }],
+    bg61: [{ y: 560, rx: 760, ry: 90, sp: 6, a: .07, col: [200, 205, 212], off: 0 }, { y: 360, rx: 700, ry: 70, sp: -4, a: .05, col: [205, 210, 218], off: 500 }],
+    bg62: [{ y: 330, rx: 700, ry: 70, sp: 5, a: .07, col: [190, 200, 195], off: 0 }, { y: 470, rx: 800, ry: 50, sp: -4, a: .05, col: [185, 195, 190], off: 600 }],
+    bg64: [{ y: 470, rx: 720, ry: 80, sp: 5, a: .07, col: [150, 165, 190], off: 0 }, { y: 650, rx: 800, ry: 60, sp: -4, a: .05, col: [140, 155, 180], off: 600 }],
+    bg66: [{ y: 330, rx: 600, ry: 70, sp: 6, a: .06, col: [120, 140, 165], off: 0 }],
+    bg67a: [{ y: 700, rx: 760, ry: 60, sp: 7, a: .07, col: [170, 185, 205], off: 0 }, { y: 520, rx: 700, ry: 50, sp: -5, a: .05, col: [160, 175, 200], off: 500 }],
+    bg67b: [{ y: 700, rx: 760, ry: 60, sp: 7, a: .07, col: [170, 185, 205], off: 0 }, { y: 520, rx: 700, ry: 50, sp: -5, a: .05, col: [160, 175, 200], off: 500 }],
+    bg67g: [{ y: 640, rx: 760, ry: 60, sp: 6, a: .06, col: [170, 185, 205], off: 0 }, { y: 400, rx: 700, ry: 50, sp: -4, a: .05, col: [230, 200, 150], off: 500 }],
+    bg67v: [{ y: 700, rx: 760, ry: 60, sp: 6, a: .07, col: [150, 165, 190], off: 0 }]
   };
   var GLOW = {
     bg14: [{ x: 1130, y: 235, r: 230, col: [255, 214, 150], a: .07, sp: .5 }],
@@ -314,7 +361,14 @@
     bg55: [{ x: 636, y: 300, r: 300, col: [255, 205, 130], a: .09, sp: .8 }, { x: 520, y: 440, r: 170, col: [255, 245, 220], a: .06, sp: 1.3 }],
     bg56: [{ x: 850, y: 95, r: 360, col: [255, 200, 130], a: .10, sp: .7 }],
     bg57: [{ x: 700, y: 430, r: 560, col: [255, 225, 170], a: .05, sp: .35 }],
-    bg58: [{ x: 890, y: 120, r: 360, col: [255, 190, 120], a: .09, sp: .7 }, { x: 1330, y: 70, r: 300, col: [150, 200, 255], a: .05, sp: .5 }]
+    bg58: [{ x: 890, y: 120, r: 360, col: [255, 190, 120], a: .09, sp: .7 }, { x: 1330, y: 70, r: 300, col: [150, 200, 255], a: .05, sp: .5 }],
+    bg61: [{ x: 800, y: 320, r: 560, col: [255, 214, 150], a: .07, sp: .6 }],
+    bg63: [{ x: 813, y: 500, r: 420, col: [255, 200, 120], a: .09, sp: .6 }],
+    bg64: [{ x: 230, y: 150, r: 330, col: [255, 225, 160], a: .09, sp: .8 }, { x: 1100, y: 150, r: 300, col: [255, 210, 150], a: .07, sp: 1.0 }, { x: 740, y: 350, r: 170, col: [255, 245, 225], a: .09, sp: 1.2 }],
+    bg65: [{ x: 840, y: 440, r: 280, col: [255, 215, 150], a: .08, sp: 1.1 }],
+    bg66: [{ x: 800, y: 420, r: 420, col: [255, 215, 150], a: .05, sp: .5 }, { x: 760, y: 740, r: 300, col: [255, 150, 70], a: .04, sp: 1.2 }],
+    bg67g: [{ x: 1100, y: 350, r: 520, col: [255, 190, 110], a: .07, sp: .5 }, { x: 160, y: 270, r: 240, col: [255, 200, 120], a: .08, sp: .9 }],
+    bg67v: [{ x: 560, y: 290, r: 380, col: [255, 40, 30], a: .05, sp: 1.2 }]
   };
   var FLICKER = {                                   // области, затемняемые при моргании света: [cx, cy, радиус, непрозрачность, растяжение x, растяжение y]
     bg23: [[770, 330, 640, .5], [765, 100, 150, .78], [930, 124, 560, .5, 1, .05]],
@@ -330,18 +384,23 @@
     bg45: [{ x: 840, y: 469, r: 70, col: '255,190,60', per: 1.3, on: .55, a: .55 }, { x: 713, y: 437, r: 34, col: '255,150,50', per: 1.3, on: .55, a: .5 }, { x: 597, y: 413, r: 30, col: '255,150,50', per: 1.3, on: .55, a: .45 }, { x: 1000, y: 457, r: 34, col: '255,140,50', per: 1.3, on: .55, a: .45 }],
     bg46: [{ x: 337, y: 716, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7 }, { x: 388, y: 720, r: 22, col: '255,60,45', per: 1.1, on: .5, a: .7, off: .55 }],
     bg52: [{ x: 630, y: 556, r: 100, col: '255,70,50', per: 3.4, on: .55, a: .30 }],
-    bg55: [{ x: 603, y: 402, r: 46, col: '120,200,255', per: 1.5, on: .6, a: .5 }, { x: 603, y: 402, r: 18, col: '200,235,255', per: 1.5, on: .6, a: .5 }]
+    bg55: [{ x: 603, y: 402, r: 46, col: '120,200,255', per: 1.5, on: .6, a: .5 }, { x: 603, y: 402, r: 18, col: '200,235,255', per: 1.5, on: .6, a: .5 }],
+    bg67v: [{ x: 562, y: 286, r: 80, col: '255,50,40', per: 1.1, on: .5, a: .6 }, { x: 408, y: 256, r: 44, col: '255,50,40', per: 1.1, on: .5, a: .55, off: .55 }]
   };
   var GLINT = {                                     // блики на металле: x, y, размер, период, сдвиг
     bg47a: [{ x: 672, y: 300, r: 34, per: 3.4, off: 0 }, { x: 655, y: 380, r: 28, per: 4.1, off: 1.3 }, { x: 713, y: 378, r: 22, per: 3.1, off: 2.2 }],
     bg57: [{ x: 900, y: 700, r: 22, per: 3.6, off: 0 }, { x: 1120, y: 770, r: 20, per: 4.2, off: 1.1 }, { x: 1320, y: 700, r: 18, per: 3.1, off: 2 }, { x: 1000, y: 830, r: 24, per: 4.6, off: 2.7 },
            { x: 1230, y: 620, r: 16, per: 3.3, off: .6 }, { x: 760, y: 760, r: 18, per: 3.9, off: 1.8 }, { x: 1450, y: 820, r: 22, per: 4.4, off: 3.1 }, { x: 600, y: 690, r: 16, per: 3.0, off: 2.4 }],
-    bg58: [{ x: 210, y: 440, r: 30, per: 4, off: 0 }, { x: 430, y: 520, r: 26, per: 4.8, off: 1.7 }, { x: 120, y: 560, r: 22, per: 3.8, off: 2.9 }, { x: 1100, y: 215, r: 24, per: 5, off: .8 }]
+    bg58: [{ x: 210, y: 440, r: 30, per: 4, off: 0 }, { x: 430, y: 520, r: 26, per: 4.8, off: 1.7 }, { x: 120, y: 560, r: 22, per: 3.8, off: 2.9 }, { x: 1100, y: 215, r: 24, per: 5, off: .8 }],
+    bg67a: [{ x: 612, y: 325, r: 30, per: 3.4, off: 0 }, { x: 718, y: 318, r: 22, per: 4.1, off: 1.3 }],
+    bg67b: [{ x: 330, y: 354, r: 28, per: 3.6, off: .4 }, { x: 441, y: 366, r: 22, per: 4.2, off: 1.7 }]
   };
   var GLASSCFG = {                                  // стекло, по которому стекают капли (по умолчанию — лобовое bg12)
     bg46: { poly: [[10, 110], [200, 62], [700, 42], [900, 42], [1400, 62], [1590, 110], [1585, 520], [1500, 620], [1100, 610], [500, 610], [100, 620], [10, 540]],
       x0: 120, x1: 1480, y0: 90, y1: 400, ymax: 590, tr: '205,218,238', g: ['rgba(238,244,252,.9)', 'rgba(190,205,226,.55)', 'rgba(170,190,215,.15)'] },
-    bg53: { poly: [[1125, 8], [1432, 8], [1432, 285], [1125, 292]], x0: 1140, x1: 1420, y0: 30, y1: 140, ymax: 280, tr: '205,218,238', g: ['rgba(238,244,252,.85)', 'rgba(190,205,226,.5)', 'rgba(170,190,215,.12)'] }
+    bg53: { poly: [[1125, 8], [1432, 8], [1432, 285], [1125, 292]], x0: 1140, x1: 1420, y0: 30, y1: 140, ymax: 280, tr: '205,218,238', g: ['rgba(238,244,252,.85)', 'rgba(190,205,226,.5)', 'rgba(170,190,215,.12)'] },
+    bg63: { poly: [[30, 20], [440, 20], [440, 740], [30, 745]], x0: 50, x1: 420, y0: 40, y1: 300, ymax: 730, tr: '205,218,238', g: ['rgba(238,244,252,.85)', 'rgba(190,205,226,.5)', 'rgba(170,190,215,.12)'] },
+    bg66: { poly: [[117, 210], [270, 150], [1250, 150], [1407, 230], [1392, 625], [132, 625]], x0: 140, x1: 1390, y0: 175, y1: 380, ymax: 600, tr: '205,218,238', g: ['rgba(238,244,252,.9)', 'rgba(190,205,226,.55)', 'rgba(170,190,215,.15)'] }
   };
   var fxC = document.getElementById('fx'), fxX = fxC && fxC.getContext ? fxC.getContext('2d') : null;
   var fxOn = false, fxRaf = 0, fxW = 0, fxH = 0, fxK = 1, fxLast = 0, fxOff = 0, fxKey = null, fxModes = [], fxImg = null;
@@ -361,6 +420,8 @@
     steam48b: { em: [[870, 372], [800, 366], [960, 352]], dx: 70, dy: -260, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
     steam49: { em: [[1003, 498]], dx: -10, dy: -150, pw: .9, life: [2.2, 3.4], spawn: [.28, .45], r0: [4, 7], grow: 22, al: [.10, .17], col: [240, 236, 228], wob: [2, 10] },
     steam56: { em: [[820, 335], [760, 325], [880, 345]], dx: 40, dy: -250, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
+    steam64: { em: [[930, 360], [885, 348], [1000, 385]], dx: 40, dy: -210, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
+    breath65: { em: [[420, 262]], dx: -22, dy: -30, pw: .9, life: [1.3, 2.0], spawn: [.35, .6], r0: [3, 5], grow: 11, al: [.18, .3], col: [250, 252, 255], wob: [1, 4] },
     dust57:  { em: [[740, 560], [780, 570], [820, 555]], dx: 320, dy: -60, pw: .8, life: [2.6, 4.2], spawn: [.09, .16], r0: [26, 40], grow: 130, al: [.14, .24], col: [226, 214, 196], wob: [4, 22] }
   };
   var GLASS12 = [[125, 150], [300, 48], [1300, 48], [1475, 150], [1385, 585], [1225, 622], [260, 622]];
@@ -925,7 +986,7 @@
       applyProps(b, false);
       if (b.kind === 'choice' && b.id && flags[b.id]) {
         for (var q = 0; q < b.options.length; q++) if (b.options[q].val === flags[b.id]) {
-          if (b.options[q].stat) applyStats(b.options[q].stat, false);
+          if (optStat(b.options[q])) applyStats(optStat(b.options[q]), false);
           if (b.options[q].damp) dampPending = true;
         }
       }
@@ -1025,7 +1086,7 @@
   var NUMW = ['', 'одного', 'двух', 'трёх', 'четырёх', 'пяти'], NUMN = ['ноль', 'один', 'два', 'три', 'четыре', 'пять', 'шесть'];
   function plural(n, a, b, c) { var m = n % 100, d = n % 10; return (m > 10 && m < 15) ? c : d === 1 ? a : (d >= 2 && d <= 4) ? b : c; }
   function standRows(b, t) {                        // общий зачёт после этапа b.stage: все экипажи, движение относительно прошлого этапа
-    var now = seasonRanked(b.stage, t).filter(function (r) { return r.pts > 0 || r.n === 4; }), before = {};   // без очков в зачёте не значатся
+    var now = seasonRanked(b.stage, t, b.stage === 5).filter(function (r) { return r.pts > 0 || r.n === 4; }), before = {};   // без очков в зачёте не значатся
     if (b.stage > 0) seasonRanked(b.stage - 1, t).filter(function (r) { return r.pts > 0 || r.n === 4; }).forEach(function (r, i) { before[r.n] = i + 1; });
     now.forEach(function (r, i) { r.place = i + 1; });
     var alex = now.filter(function (r) { return r.n === 4; })[0] || null;
@@ -1038,25 +1099,36 @@
     });
     return { rows: rows, alex: alex };
   }
+  function teamRows(t) {                           // командный зачёт сезона: очки экипажей по командам (у «Ладоги» — Алекс и Лыков)
+    var by = {};
+    seasonRanked(5, t, true).forEach(function (r) {
+      var c = RALLY_DATA.crews.filter(function (x) { return x.n === r.n; })[0], team = r.n === 4 ? 'Ладога Ралли' : (c && c.t);
+      if (team) by[team] = (by[team] || 0) + r.pts;
+    });
+    var arr = Object.keys(by).map(function (k) { return { team: k, pts: by[k] }; }).sort(function (a, b) { return b.pts - a.pts; }), lead = arr.length ? arr[0].pts : 0;
+    return arr.map(function (r, i) { return { place: i + 1, label: r.team, gapT: i === 0 ? 'лидер' : '−' + (lead - r.pts) + ' ' + plural(lead - r.pts, 'очко', 'очка', 'очков'), pts: r.pts, alex: r.team === 'Ладога Ралли' }; });
+  }
   function renderProto(mode) {
     var b = protoCur; if (!b) return;
     var anim = !STATIC && mode === 'intro';
     stopProtoAnim();
-    var dv = derived(), ret = b.stage === 2 && dv.ret2 === 1;     // сход на «Печорах»: времени Алекса нет
+    var dv = derived(), retAt = function (si) { return (si === 2 && dv.ret2 === 1) || (si === 5 && dv.crash6 === 1); };     // сход на «Печорах» (4.5Б) или на финале (6.6Б без запаса): времени Алекса нет
+    var ret = retAt(b.stage), team = b.kind === 'standings' && b.mode === 'team';
     var t = ret ? null : dv.t[b.stage];
     if (t == null && !ret && b.stage !== 3) t = RallyModel.alexStageTime(b.stage, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
     var stand = b.kind === 'standings', d, tAll = derived().t.slice();
     if (stand) {
-      for (var si = 0; si <= b.stage; si++) if (tAll[si] == null && si !== 3 && !(si === 2 && ret)) tAll[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
-      d = standRows(b, tAll);
+      for (var si = 0; si <= b.stage; si++) if (tAll[si] == null && si !== 3 && !retAt(si)) tAll[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
+      d = team ? { rows: teamRows(tAll), alex: null } : standRows(b, tAll);
     } else d = protoRows(b.stage, t);
     el.proto.classList.toggle('st', stand);
-    el.protoGap.textContent = stand ? 'Движение' : 'Отставание от лидера';
+    el.protoGap.textContent = team ? 'Отставание' : stand ? 'Движение' : 'Отставание от лидера';
     el.protoTitle.textContent = '';                  // «Итоги ралли «Ильмень»»: первая часть тонко, название — акцентом
-    var tPre = document.createElement('span'); tPre.className = 'pt-pre'; tPre.textContent = stand ? 'Общий зачёт' : 'Итоги ралли';
-    var tName = document.createElement('span'); tName.className = 'pt-name'; tName.textContent = stand ? 'после ' + (NUMW[b.stage + 1] || (b.stage + 1)) + ' ' + plural(b.stage + 1, 'этапа', 'этапов', 'этапов') : '«' + RALLY_DATA.stages[b.stage] + '»';
+    var fin = stand && b.stage === 5;                // после финала — итог сезона
+    var tPre = document.createElement('span'); tPre.className = 'pt-pre'; tPre.textContent = team ? 'Командный зачёт' : fin ? 'Итоговый зачёт' : stand ? 'Общий зачёт' : 'Итоги ралли';
+    var tName = document.createElement('span'); tName.className = 'pt-name'; tName.textContent = (team || fin) ? 'сезона' : stand ? 'после ' + (NUMW[b.stage + 1] || (b.stage + 1)) + ' ' + plural(b.stage + 1, 'этапа', 'этапов', 'этапов') : '«' + RALLY_DATA.stages[b.stage] + '»';
     el.protoTitle.appendChild(tPre); el.protoTitle.appendChild(document.createTextNode(' ')); el.protoTitle.appendChild(tName);
-    el.protoSub.textContent = 'Чемпионат России · класс R2 · ' + (stand ? 'личный зачёт' : RALLY_DATA.dates[b.stage]);
+    el.protoSub.textContent = 'Чемпионат России · класс R2 · ' + (team ? 'командный зачёт' : stand ? 'личный зачёт' : RALLY_DATA.dates[b.stage]);
     el.protoBody.innerHTML = '';
     var counters = [], k = 0, T0 = 420, STEP = 55;   // первая строка — после лица листа; шаг между строками
     d.rows.forEach(function (r) {
@@ -1076,7 +1148,8 @@
     });
     if (anim && counters.length) runCounters(counters);
     var a = d.alex;
-    if (stand) el.sr.textContent = 'Общий зачёт ' + el.protoTitle.textContent.replace('Общий зачёт ', '') + '. ' + (a ? 'Алекс: ' + a.place + '-е место, очков: ' + a.pts + '.' : '');
+    if (team) el.sr.textContent = 'Командный зачёт сезона. ' + d.rows.map(function (r) { return r.place + '. ' + r.label + ', очков: ' + r.pts; }).join('. ') + '.';
+    else if (stand) el.sr.textContent = el.protoTitle.textContent + '. ' + (a ? 'Алекс: ' + a.place + '-е место, очков: ' + a.pts + '.' : '');
     else if (ret) el.sr.textContent = 'Итоги ралли «' + RALLY_DATA.stages[b.stage] + '». Алекс: сход, очков: 0.';
     else el.sr.textContent = 'Итоги ралли «' + RALLY_DATA.stages[b.stage] + '». ' + (a ? 'Алекс: ' + a.place + '-е место' + (a.place > 1 ? ', отставание от лидера ' + spokenGap(a.gap) : '') + ', очков: ' + a.points + '.' : '');
   }
@@ -1197,6 +1270,10 @@
     el.sr.textContent = 'Выберите ответ. ' + vis.map(function (o, k) { return (k + 1) + '. ' + o.label; }).join('. ');
     var first = el.choice.querySelector('.opt'); if (first && !opts.instant) { try { first.focus({ preventScroll: true }); } catch (e) {} }
   }
+  function optStat(o) {                              // 🤝/🔧 выбранного варианта: alt перекрывает stat, если выполнено условие (например, 6.3-А: +2, при {сомнение} +1)
+    if (o.alt) for (var q = 0; q < o.alt.length; q++) if (whenOk(o.alt[q].when)) return o.alt[q].stat;
+    return o.stat;
+  }
   function setChoice(b, o) {                        // флаги выбранного варианта; флаги остальных вариантов снимаются
     b.options.forEach(function (x) { if (x.flags) Object.keys(x.flags).forEach(function (k) { delete flags[k]; }); });
     flags[b.id] = o.val;
@@ -1206,7 +1283,7 @@
     if (mode !== 'choice') return;
     setChoice(b, o);
     el.choice.hidden = true; el.dialog.classList.remove('away');
-    if (o.stat) applyStats(o.stat, true);                    // изменение — только после подтверждения выбора
+    if (optStat(o)) applyStats(optStat(o), true);            // изменение — только после подтверждения выбора
     if (o.damp) dampPending = true;
     i = nextVisible(i); save(); showBeat(i, { force: true });
   }
@@ -1231,7 +1308,11 @@
     if (typing) { finishTyping(); return; }         // первое касание дописывает текст
     go();
   }
+  var END_NAMES = { 'А': ['Концовка А', 'Имя'], 'Б': ['Концовка Б', 'Серебро'], 'Г': ['Концовка Г', 'Финиш без подиума'], 'В': ['Концовка В', 'Кювет'] };
   function showEnd() {
+    var ek = endKey(), nm = END_NAMES[ek];
+    $('endKick').textContent = nm ? nm[0] : 'Конец'; $('endTitle').textContent = nm ? nm[1] : 'Путь пройден';
+    el.sr.textContent = nm ? nm[0] + '. ' + nm[1] + '.' : 'Конец.';
     ended = true; el.cShown.textContent = ''; el.cRest.textContent = ''; el.end.hidden = false; el.scrHint.classList.remove('on'); el.hint.classList.remove('on'); el.cHint.classList.remove('on'); clear();
     try { el.endBtn.focus({ preventScroll: true }); } catch (e) {}
   }
@@ -1255,7 +1336,16 @@
     { key: 'k45', label: 'Сцена 4.5', opts: [['A', 'Дорожный темп'], ['B', 'На пределе']] },
     { key: 'k52', label: 'Сцена 5.2', opts: [['A', 'Срочная доставка (нужны деньги)'], ['B', 'Обычная доставка']] },
     { key: 'k54', label: 'Сцена 5.4', opts: [['A', 'Не обещал'], ['B', 'Обещал победу']] },
-    { key: 'k55', label: 'Сцена 5.5', opts: [['A', 'Твоё решение'], ['B', 'Он тебя сменит'], ['V', 'Ты нужна на финале']] }
+    { key: 'k55', label: 'Сцена 5.5', opts: [['A', 'Твоё решение'], ['B', 'Он тебя сменит'], ['V', 'Ты нужна на финале']] },
+    { key: 'k63', label: 'Сцена 6.3', opts: [['A', 'Спасибо, что сказала'], ['B', 'Я его уничтожу'], ['V', 'Промолчал, перечитал']] },
+    { key: 'k66', label: 'Сцена 6.6', opts: [['A', 'Отпустил газ по метке'], ['B', 'Не отпустил (риск)']] }
+  ];
+  /* пресеты веток под четыре концовки (проверены перебором калибровки: Финал А, Б, Г, В) */
+  var RB_PRESETS = [
+    { label: 'Пресет «Финал А»', title: 'Все варианты «А»: чемпион, запас на 6.6, Вика осталась', sel: 'AAAAAAAAAAAAAAAA' },
+    { label: 'Пресет «Финал Б»', title: 'Второе место в чемпионате: 6.3-В, риска нет', sel: 'AAAAAAAAAABABBVA' },
+    { label: 'Пресет «Финал Г»', title: 'Место ниже второго: доверие 4, машина 7, Вика уходит к Кравцу', sel: 'AAAAAAAVABBABBBA' },
+    { label: 'Пресет «Финал В»', title: 'Риск в 6.6 без запаса (🤝 6): занос, сход', sel: 'AAAAAAAAAABAABBB' }
   ];
   function rbFlags() {                               // флаги, которые получились бы при выбранных в листе вариантах (для условий вариантов)
     var f = {};
@@ -1318,6 +1408,11 @@
     pr.setAttribute('title', 'Резина по цене (3.6-Б), Толя без поправок (4.4-Б), на пределе (4.5-Б)');
     pr.addEventListener('click', function (e) { e.stopPropagation(); rbSel.k36 = 'B'; rbSel.k44 = 'B'; rbSel.k45 = 'B'; rbFix(); markRb(); });
     foot.appendChild(pr);
+    RB_PRESETS.forEach(function (pz) {
+      var pb = document.createElement('button'); pb.type = 'button'; pb.className = 'rb-preset'; pb.textContent = pz.label; pb.setAttribute('title', pz.title);
+      pb.addEventListener('click', function (e) { e.stopPropagation(); RB_GROUPS.forEach(function (g, q) { rbSel[g.key] = pz.sel.charAt(q) === 'B' ? 'B' : pz.sel.charAt(q) === 'V' ? 'V' : 'A'; }); rbFix(); markRb(); });
+      foot.appendChild(pb);
+    });
     var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'rb-restart'; rs.textContent = 'Начать сначала';
     rs.addEventListener('click', function (e) { e.stopPropagation(); closeRb(); restart(); });
     foot.appendChild(rs);
@@ -1413,7 +1508,7 @@
   window.__vn = { bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
                   derived: function () { return derived(); }, snaps: function () { return snaps; },
                   protocol: function () { return Array.prototype.map.call(el.protoBody.querySelectorAll('tr'), function (r) { return Array.prototype.map.call(r.children, function (c) { return c.textContent; }); }); },
-                  mode: function () { return mode; }, ended: function () { return ended; },
+                  mode: function () { return mode; }, ended: function () { return ended; }, ending: function () { return endKey(); },
                   lines: function () { var r = []; for (var n = 0; n < B.length; n++) if (visible(n)) r.push(n); return r; },
                   opts: function () { return Array.prototype.map.call(el.choice.querySelectorAll('.opt'), function (b) { return b.textContent; }); } };
 })();
