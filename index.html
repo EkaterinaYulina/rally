@@ -43,12 +43,21 @@
       </div>
     </div>
 
+    <div class="hud-btns">
+    <button class="sndbtn" id="sndbtn" type="button" aria-label="Звук" aria-pressed="true" title="Звук (S)">
+      <svg class="sndbtn-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z"/>
+        <path class="snd-wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/>
+        <path class="snd-off" d="M16 9.5l5 5M21 9.5l-5 5"/>
+      </svg>
+    </button>
     <button class="roadbook" id="roadbook" type="button" aria-label="Маршрутный лист">
       <svg class="roadbook-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/>
       </svg>
       <span class="roadbook-txt">Маршрутный лист</span>
     </button>
+    </div>
   </header>
 
   <!-- Портреты: один на реплику, поверх текстового окна (img создаются из STORY.speakers) -->
