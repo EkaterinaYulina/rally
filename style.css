@@ -72,10 +72,10 @@ body { position: fixed; inset: 0; }
 .hud {
   position: absolute; top: 0; left: 0; right: 0; z-index: 7;
   display: flex; align-items: center; justify-content: space-between;
-  gap: calc(28 * var(--u));
-  padding: calc(38 * var(--u)) calc(60 * var(--u)) 0;
-  padding-left: max(calc(60 * var(--u)), var(--safe-l));
-  padding-right: max(calc(60 * var(--u)), var(--safe-r));
+  gap: calc(24 * var(--u));
+  padding: calc(38 * var(--u)) calc(48 * var(--u)) 0;
+  padding-left: max(calc(48 * var(--u)), var(--safe-l));
+  padding-right: max(calc(48 * var(--u)), var(--safe-r));
   font-family: var(--f-head); text-transform: uppercase; white-space: nowrap;
 }
 .loc { display: flex; align-items: center; gap: calc(10 * var(--u)); font-size: calc(18 * var(--u)); letter-spacing: .01em; }
@@ -84,11 +84,12 @@ body { position: fixed; inset: 0; }
   background: var(--dot); box-shadow: 0 0 calc(10 * var(--u)) rgba(255,59,0,.55);
   animation: blink 2.6s ease-in-out infinite; flex: none;
 }
+.loc-txt { min-width: 0; }
 .loc-rally { font-weight: 300; }
 .loc-name  { font-weight: 800; }
 .loc-km    { font-family: var(--f-mono); font-weight: 500; font-size: .9em; margin-left: calc(4 * var(--u)); letter-spacing: 0; }
 
-.inds { display: flex; gap: calc(60 * var(--u)); flex: 1; justify-content: center; }
+.inds { display: flex; gap: calc(34 * var(--u)); flex: 1; justify-content: center; }
 .ind  { font-size: calc(18 * var(--u)); position: relative; }
 /* индикатор появился (Нет → значение): подсвечивается вся плашка */
 .ind.reveal::before {
@@ -132,7 +133,7 @@ body { position: fixed; inset: 0; }
 }
 .ind-word::before { content: ' '; }          /* на десктопе — одна строка: «Машина ЕЩЁ ПОХОДИТ» */
 
-.hud-btns { display: flex; align-items: center; gap: calc(12 * var(--u)); flex: none; }
+.hud-btns { display: flex; align-items: center; gap: calc(10 * var(--u)); flex: none; }
 .sndbtn {
   display: inline-flex; align-items: center; justify-content: center;
   width: calc(46 * var(--u)); height: calc(46 * var(--u)); min-width: 36px; min-height: 36px; padding: 0;
@@ -431,6 +432,35 @@ body { position: fixed; inset: 0; }
 .proto-tbl tr td.c-gap.mv-up   { color: #c9d98a; }
 .proto-tbl tr td.c-gap.mv-down { color: #ff9a7a; }
 
+
+/* ---------- Турнирная таблица (кнопка в шапке + окно) ---------- */
+.ttbtn[hidden] { display: none; }
+.roadbook { width: calc(46 * var(--u)); min-width: 36px; padding: 0; justify-content: center; }   /* кнопки шапки — только значки (подпись в title и aria-label): с длинными «СУ-7 «Кузнечное» · 18,7 км» подписи в шапку не помещались */
+.roadbook-txt { display: none; }
+.tt {
+  position: absolute; inset: 0; z-index: 9; cursor: default; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: calc(18 * var(--u));
+  padding: calc(34 * var(--u)) calc(60 * var(--u)) calc(30 * var(--u));
+  padding-left: max(calc(60 * var(--u)), var(--safe-l)); padding-right: max(calc(60 * var(--u)), var(--safe-r));
+  background: rgba(8, 8, 12, .96); animation: fade .25s ease;
+  scrollbar-width: thin; scrollbar-color: rgba(255, 171, 0, .35) transparent;
+}
+.tt[hidden] { display: none; }
+.tt-head { display: flex; align-items: center; justify-content: space-between; gap: calc(20 * var(--u)); flex: none; }
+.tt-title { font: 800 calc(30 * var(--u))/1.1 var(--f-head); text-transform: uppercase; color: var(--amber); }
+.tt-tabs { display: flex; gap: calc(10 * var(--u)); flex: none; overflow-x: auto; padding-bottom: calc(4 * var(--u)); scrollbar-width: none; }
+.tt-tabs::-webkit-scrollbar { display: none; }
+.tt-tab {
+  flex: none; font: 400 calc(17 * var(--u))/1 var(--f-body); color: var(--ink); background: rgba(16, 15, 12, .9);
+  border: 1px solid rgba(236, 230, 214, .28); border-radius: calc(6 * var(--u)); padding: calc(12 * var(--u)) calc(18 * var(--u)); cursor: pointer; white-space: nowrap;
+}
+.tt-tab:hover { border-color: var(--amber); }
+.tt-tab[aria-selected="true"] { border-color: var(--amber); background: rgba(255, 171, 0, .16); color: var(--amber); }
+.tt-tab:focus-visible, .rb-close:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.tt-body { display: flex; justify-content: center; flex: none; }
+.tt-sheet { margin-bottom: calc(10 * var(--u)); }
+.tt .proto-tbl.st .c-gap, .tt.st .proto-tbl .c-gap { width: calc(150 * var(--u)); }
+
 /* ---------- Заглушка «Поверните телефон» ---------- */
 .rotate {
   position: fixed; inset: 0; z-index: 99; display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -520,10 +550,16 @@ body { position: fixed; inset: 0; }
   .rb-seg { gap: 6px; }
   .rb-seg-l { font-size: 10px; }
   .rb-opt, .rb-restart, .rb-preset { font-size: 12.5px; padding: 8px 10px; min-height: 34px; }
+  .tt { padding: 10px max(14px, var(--safe-r)) 12px max(14px, var(--safe-l)); gap: 8px; }
+  .tt-title { font-size: 16px; }
+  .tt-tabs { gap: 6px; }
+  .tt-tab { font-size: 12.5px; padding: 8px 12px; min-height: 36px; }
+  .tt-sheet { width: min(640px, 100%); padding: 10px 14px; border-radius: 12px; }
+  .tt.st .proto-tbl .c-gap { width: 70px; }
 }
 
-/* Узкий телефон (ширина поля < 800): в одной строке с местом уже не помещается — показатели уходят строкой ниже, но тоже в одну строку */
-@container stage (max-height: 480px) and (max-width: 799px) {
+/* Узкий телефон (ширина поля < 1200; на 896×414 и 932×430 показатели наезжали на кнопки): в одной строке с местом уже не помещается — показатели уходят строкой ниже, но тоже в одну строку */
+@container stage (max-height: 480px) and (max-width: 1199px) {
   .hud { flex-wrap: wrap; row-gap: 3px; }
   .inds { order: 3; flex: 1 0 100%; justify-content: flex-start; gap: 18px; }
   .ind { padding-top: 0; }

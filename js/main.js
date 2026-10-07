@@ -384,7 +384,7 @@
 
   var typing = false, timer = null, pos = 0, ended = false, autoT = null, cutAt = 0, bgCur = null, cutOpen = false, chapHold = false, chapT = null;
   var stats = { car: null, trust: null };
-  var rbOpen = false, rbSel = {};
+  var rbOpen = false, rbSel = {}, ttOpen = false;
   /* состояние, которое не лежит в флагах и пересобирается replay(): снимки 🤝/🔧 на старте этапов,
      однократное «гашение» следующего прироста доверия ({наорал}), слова индикаторов на начало главы */
   var snaps = {}, dampPending = false, chap0 = null;
@@ -1350,6 +1350,7 @@
   function showBeat(n, opts) {
     opts = opts || {};
     var b = B[n];
+    ttBtnSync();
     stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false;
     el.hint.classList.remove('on'); el.cHint.classList.remove('on');
     if (b.kind !== 'protocol' && b.kind !== 'standings' && b.kind !== 'hud') hideScreen();
@@ -1644,13 +1645,13 @@
 
   /* ---------- переходы ---------- */
   function go() {                                   // следующая реплика без «дописывания»
-    if (ended || rbOpen) return;
+    if (ended || rbOpen || ttOpen) return;
     var n = nextVisible(i);
     if (n >= B.length) { showEnd(); return; }
     i = n; save(); showBeat(i);
   }
   function advance() {
-    if (ended || rbOpen || mode === 'choice') return;
+    if (ended || rbOpen || ttOpen || mode === 'choice') return;
     if (mode === 'cut' && chapHold) {               // карточка главы: тап не сразу
       if (performance.now() - cutAt < 700) return;
       chapHold = false; go(); return;
@@ -1805,14 +1806,89 @@
     showBeat(i, { force: true, instant: true });
   }
   buildRb();
+
+  /* ---------- турнирная таблица: общий зачёт и результаты пройденных этапов (открывается кнопкой в шапке или клавишей T) ---------- */
+  var ttTab = 'st';
+  function ttAvail() {                              // что игрок уже видел: протоколы этапов и общий зачёт по битам до текущей реплики (включительно)
+    var st = {}, stand = -1, team = false;
+    for (var n = 0; n <= i && n < B.length; n++) {
+      var b = B[n]; if (!visible(n)) continue;
+      if (b.kind === 'protocol') st[b.stage] = true;
+      else if (b.kind === 'standings') { if (b.mode === 'team') team = true; else { stand = Math.max(stand, b.stage); st[b.stage] = true; } }
+    }
+    return { stages: st, stand: stand, team: team, any: stand >= 0 || Object.keys(st).length > 0 };
+  }
+  function ttBtnSync() { var a = ttAvail(); $('ttbtn').hidden = !a.any; return a; }
+  function ttData(tab, av) {                        // → {title:[pre,name], sub, gap, rows, alex, stand}
+    var dv = derived(), t = dv.t.slice(), retAt = function (si) { return (si === 2 && dv.ret2 === 1) || (si === 5 && dv.crash6 === 1); };
+    var upto = tab === 'st' || tab === 'team' ? Math.max(av.stand, 0) : +tab;
+    for (var si = 0; si <= upto; si++) if (t[si] == null && si !== 3 && !retAt(si)) t[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
+    if (tab === 'team') return { title: ['Командный зачёт', 'сезона'], sub: 'Чемпионат России · класс R2 · командный зачёт', gap: 'Отставание', rows: teamRows(t), stand: true };
+    if (tab === 'st') {
+      var d = standRows({ stage: upto }, t), fin = upto === 5;
+      return { title: [fin ? 'Итоговый зачёт' : 'Общий зачёт', fin ? 'сезона' : 'после ' + (NUMW[upto + 1] || (upto + 1)) + ' ' + plural(upto + 1, 'этапа', 'этапов', 'этапов')],
+               sub: 'Чемпионат России · класс R2 · личный зачёт', gap: 'Движение', rows: d.rows, stand: true };
+    }
+    var s = +tab, p = protoRows(s, s === 3 ? null : (retAt(s) ? null : t[s]));
+    var rows = s === 3 ? p.rows.filter(function (r) { return !r.alex; }) : p.rows;     // «Горный край»: Алекс не заявлен
+    return { title: ['Итоги ралли', '«' + RALLY_DATA.stages[s] + '»'], sub: 'Чемпионат России · класс R2 · ' + RALLY_DATA.dates[s] + (s === 3 ? ' · наш экипаж не заявлен' : ''), gap: 'Отставание от лидера', rows: rows, stand: false };
+  }
+  function ttRender() {
+    var av = ttAvail(), tabs = [];
+    if (av.stand >= 0) tabs.push({ id: 'st', label: 'Общий зачёт' });
+    if (av.team) tabs.push({ id: 'team', label: 'Командный зачёт' });
+    [0, 1, 2, 3, 4, 5].forEach(function (s) { if (av.stages[s]) tabs.push({ id: String(s), label: RALLY_DATA.stages[s] }); });
+    if (!tabs.length) return;
+    if (!tabs.some(function (x) { return x.id === ttTab; })) ttTab = tabs[0].id;
+    var box = $('ttTabs'); box.innerHTML = '';
+    tabs.forEach(function (x) {
+      var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'tt-tab'; bt.textContent = x.label;
+      bt.setAttribute('role', 'tab'); bt.setAttribute('aria-selected', x.id === ttTab ? 'true' : 'false');
+      bt.addEventListener('click', function (e) { e.stopPropagation(); ttTab = x.id; ttRender(); bt.focus({ preventScroll: true }); });
+      box.appendChild(bt);
+    });
+    var d = ttData(ttTab, av), ti = $('ttTitle');
+    $('tt').classList.toggle('st', d.stand);
+    ti.textContent = '';
+    var a = document.createElement('span'); a.className = 'pt-pre'; a.textContent = d.title[0];
+    var b2 = document.createElement('span'); b2.className = 'pt-name'; b2.textContent = d.title[1];
+    ti.appendChild(a); ti.appendChild(document.createTextNode(' ')); ti.appendChild(b2);
+    $('ttSub').textContent = d.sub; $('ttGap').textContent = d.gap;
+    var body = $('ttBody'), me = null; body.innerHTML = '';
+    d.rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      if (r.alex) { tr.classList.add('me'); me = tr; } if (r.off) tr.classList.add('off'); else if (!r.alex && r.place === 1) tr.classList.add('lead');
+      [[r.place, 'c-pl'], [r.label, 'c-cr'], [r.gapT, 'c-gap'], [r.pts ? String(r.pts) : '—', 'c-pt']].forEach(function (c, ci) {
+        var td = document.createElement('td'); td.className = c[1] + (ci === 2 && r.mv ? ' mv-' + r.mv : ''); td.textContent = c[0]; tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    return me;
+  }
+  function openTT() {
+    var av = ttAvail(); if (!av.any) return;
+    if (!av.stages[+ttTab] && ttTab !== 'st' && ttTab !== 'team') ttTab = 'st';
+    if (ttTab === 'st' && av.stand < 0) ttTab = '';
+    ttOpen = true; $('tt').hidden = false;
+    var me = ttRender();
+    $('tt').scrollTop = 0;
+    var cur = document.querySelector('.tt-tab[aria-selected="true"]') || $('ttClose');
+    try { cur.focus({ preventScroll: true }); } catch (e) {}
+    if (me) setTimeout(function () { if (!ttOpen) return; var pr = $('tt').getBoundingClientRect(), r = me.getBoundingClientRect(); if (r.bottom > pr.bottom - 20) $('tt').scrollTop = $('tt').scrollTop + (r.top - pr.top) - pr.height / 2; }, 30);
+  }
+  function closeTT() { ttOpen = false; $('tt').hidden = true; try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {} }   // фокус не возвращаем на кнопку: иначе пробел снова открыл бы таблицу
+  $('ttbtn').addEventListener('click', function (e) { e.stopPropagation(); if (ttOpen) closeTT(); else openTT(); });
+  $('ttClose').addEventListener('click', function (e) { e.stopPropagation(); closeTT(); });
   $('roadbook').addEventListener('click', function (e) { e.stopPropagation(); if (rbOpen) closeRb(); else openRb(); });
 
   /* ---------- ввод ---------- */
   el.stage.addEventListener('click', function (e) {
-    if (e.target.closest && (e.target.closest('#roadbook') || e.target.closest('#end') || e.target.closest('#choice') || e.target.closest('#rb'))) return;
+    if (e.target.closest && (e.target.closest('#roadbook') || e.target.closest('#ttbtn') || e.target.closest('#tt') || e.target.closest('#end') || e.target.closest('#choice') || e.target.closest('#rb'))) return;
     advance();
   });
   document.addEventListener('keydown', function (e) {
+    if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
+    if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { if (ttAvail().any) { e.preventDefault(); openTT(); } return; }
     if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
     if (rbOpen) { if (e.key === 'Escape') { e.preventDefault(); closeRb(); } return; }
     if (mode === 'choice' && !ended) {
