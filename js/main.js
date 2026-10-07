@@ -95,10 +95,11 @@
         g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + fade);
         k.tm = setTimeout(function () {
           if (id !== MUS.want && k.src) { try { k.src.stop(); } catch (e) {} k.src.disconnect(); k.src = null; }   // снят — с начала при следующем запуске
-          if (!(MUS.want && play) && c.state === 'running') c.suspend();                                                  // тишина — устройство вывода не держим
+          audSettle();                                                                                                    // тишина — устройство вывода не держим
         }, fade * 1000 + 60);
       }
     });
+    ambSync(MUS.fadeMs);                                // звуки подчиняются тем же условиям, что и музыка
   }
   function setMusic(v, instant) {
     MUS.want = (v && v !== 'stop') ? v : null;
@@ -116,6 +117,268 @@
     var b = document.getElementById('sndbtn');
     if (b) { b.setAttribute('aria-pressed', on ? 'false' : 'true'); b.setAttribute('aria-label', on ? 'Звук выключен' : 'Звук включён'); }
     musSync(350);
+  }
+
+  /* ---------- звуки (SFX): синтез на Web Audio, без файлов ----------
+     Каждый звук собирается из осцилляторов и шума (набор SYN ниже). Поля реплики в story.js:
+       sfx: 'id'            — разовый звук в момент показа реплики (при восстановлении и прыжках не повторяется);
+       amb: 'id' | 'stop'   — фоновый слой: идёт, пока его не сменят или не снимут; пересчитывается replay, как музыка.
+     Реестр S.sounds: { id: { synth: 'имя' (по умолчанию = id), vol, …параметры звука } } либо { src: 'assets/audio/x.mp3', vol }:
+     готовым файлом из генератора звук заменяется без правок кода. Правила те же, что у музыки: старт после первого нажатия,
+     тишина при потере фокуса, на паузе платформы и при выключенном звуке. */
+  var AMB = { want: null, cur: null, bus: null, noise: null, busyUntil: 0, buf: {} };
+  function sfxOn() { return MUS.unlocked && !MUS.muted && !MUS.hidden && !MUS.paused; }
+  function sfxBus(c) {                                 // общая шина звуков: запас по громкости и ограничитель пиков
+    if (AMB.bus) return AMB.bus;
+    var comp = c.createDynamicsCompressor();
+    comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
+    var g = c.createGain(); g.gain.value = 0.9; g.connect(comp); comp.connect(c.destination);
+    return (AMB.bus = g);
+  }
+  function audSettle() {                               // тишина — устройство вывода не держим
+    var c = MUS.ctx; if (!c || c.state !== 'running') return;
+    if (MUS.want && sfxOn()) return;
+    if (AMB.cur || performance.now() < AMB.busyUntil) return;
+    c.suspend();
+  }
+
+  /* --- кирпичики синтеза (c — AudioContext или OfflineAudioContext, out — куда играть, t — время старта в секундах) --- */
+  var SY = {
+    noise: function (c) {
+      if (c._vnNoise) return c._vnNoise;
+      var n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+      for (var q = 0; q < n; q++) d[q] = Math.random() * 2 - 1;
+      return (c._vnNoise = b);
+    },
+    curve: (function () { var a = new Float32Array(1024); for (var q = 0; q < 1024; q++) a[q] = Math.tanh((q / 512 - 1) * 2.2); return a; })(),
+    ns: function (c, t, dur) {                         // источник шума, играет с t до t + dur (dur пусто — по кругу, пока не остановят)
+      var s = c.createBufferSource(); s.buffer = SY.noise(c); s.loop = true; s.loopStart = 0; s.loopEnd = 2;
+      s.start(t, Math.random() * 1.8); if (dur) s.stop(t + dur); return s;
+    },
+    /* всплеск шума через фильтр: {type, f, f2, q, a, d, peak} — атака a, спад d (экспонента), частота f → f2 */
+    burst: function (c, out, t, o) {
+      var s = SY.ns(c, t, (o.a || 0.002) + o.d + 0.05), f = c.createBiquadFilter(), g = c.createGain();
+      f.type = o.type || 'bandpass'; f.Q.value = o.q || 1; f.frequency.setValueAtTime(o.f, t);
+      if (o.f2) f.frequency.exponentialRampToValueAtTime(o.f2, t + (o.a || 0.002) + o.d);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(o.peak, t + (o.a || 0.002));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (o.a || 0.002) + o.d);
+      s.connect(f); f.connect(g); g.connect(out);
+    },
+    /* тон с глиссандо: {type, f, f2, a, d, peak} */
+    ping: function (c, out, t, o) {
+      var s = c.createOscillator(), g = c.createGain(), a = o.a || 0.002;
+      s.type = o.type || 'sine'; s.frequency.setValueAtTime(o.f, t);
+      if (o.f2) s.frequency.exponentialRampToValueAtTime(o.f2, t + a + o.d);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(o.peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + o.d);
+      s.connect(g); g.connect(out); s.start(t); s.stop(t + a + o.d + 0.05);
+    },
+    /* ядро двигателя: пила на частоте зажиганий f + октава + суббас, мягкое ограничение и ФНЧ; rough — неровность хода, vib — «плавание» оборотов */
+    engine: function (c, out, t, o) {
+      var h = { src: [], osc: [], mult: [], lp: null, g: null }, sum = c.createGain(), ws = c.createWaveShaper(), lp = c.createBiquadFilter(), g = c.createGain();
+      ws.curve = SY.curve; lp.type = 'lowpass'; lp.frequency.value = o.lp || 420; lp.Q.value = 0.8; g.gain.value = o.level == null ? 0.5 : o.level;
+      [['sawtooth', 1, 1], ['square', 2, 0.45], ['triangle', 0.5, 0.7]].forEach(function (p) {
+        var s = c.createOscillator(), pg = c.createGain();
+        s.type = p[0]; s.frequency.value = o.f * p[1]; pg.gain.value = p[2]; s.connect(pg); pg.connect(sum); s.start(t);
+        h.src.push(s); h.osc.push(s); h.mult.push(p[1]);
+        if (o.vib) { var v = c.createOscillator(), vg = c.createGain(); v.frequency.value = 0.35; vg.gain.value = o.f * p[1] * o.vib; v.connect(vg); vg.connect(s.frequency); v.start(t); h.src.push(v); }
+      });
+      sum.connect(ws); ws.connect(lp); lp.connect(g); g.connect(out);
+      if (o.rough) { var l = c.createOscillator(), lg = c.createGain(); l.frequency.value = o.f / 3.1; lg.gain.value = (g.gain.value) * o.rough * 0.6; l.connect(lg); lg.connect(g.gain); l.start(t); h.src.push(l); }
+      if (o.intake) {                                   // шорох впуска
+        var n = SY.ns(c, t), nf = c.createBiquadFilter(), ng = c.createGain();
+        nf.type = 'bandpass'; nf.frequency.value = 260; nf.Q.value = 0.7; ng.gain.value = o.intake; n.connect(nf); nf.connect(ng); ng.connect(out); h.src.push(n);
+      }
+      h.lp = lp; h.g = g;
+      h.f = function (t1, f1, t2, f2) {                  // обороты: в t1 — f1, к t2 — линейно f2
+        h.osc.forEach(function (s, q) { s.frequency.cancelScheduledValues(t1); s.frequency.setValueAtTime(f1 * h.mult[q], t1); s.frequency.linearRampToValueAtTime(f2 * h.mult[q], t2); });
+      };
+      h.stop = function (t1) { h.src.forEach(function (s) { try { s.stop(t1 || 0); } catch (e) {} }); };
+      return h;
+    },
+    /* планировщик: fn(t) расставляет события начиная с t и возвращает время следующего; в игре работает с запасом 0,5 с, офлайн — разом на dur */
+    sched: function (c, t0, dur, fn) {
+      var st = { next: t0, iv: null };
+      function run(until) { var guard = 0; while (st.next < until && guard++ < 4000) st.next = fn(st.next); }
+      if (dur) run(t0 + dur); else { run(c.currentTime + 0.5); st.iv = setInterval(function () { run(c.currentTime + 0.5); }, 120); }
+      st.stop = function () { clearInterval(st.iv); };
+      return st;
+    }
+  };
+
+  /* --- звуки. Фоновые (bed) возвращают {stop}; разовые возвращают длительность в секундах --- */
+  var SYN = {
+    /* 1.1: ночь, дождь, дворники, редкие капли по крыше, двигатель на холостых */
+    night_idle: function (c, out, t, d, dur) {
+      var e = SY.engine(c, out, t, { f: 22, rough: 0.5, lp: 360, level: 0.5, intake: 0.05 }), hs = [e];
+      var n = SY.ns(c, t), hp = c.createBiquadFilter(), lpf = c.createBiquadFilter(), ng = c.createGain();      // шорох дождя
+      hp.type = 'highpass'; hp.frequency.value = 1800; lpf.type = 'lowpass'; lpf.frequency.value = 7000; ng.gain.value = 0.035;
+      n.connect(hp); hp.connect(lpf); lpf.connect(ng); ng.connect(out);
+      var first = true;
+      var wip = SY.sched(c, t, dur, function (tt) {                                                          // дворники: ход вверх, ход вниз, глухие упоры
+        var T = first ? tt + 0.6 : tt; first = false;
+        SY.burst(c, out, T, { type: 'bandpass', f: 650, f2: 1700, q: 1.6, a: 0.12, d: 0.45, peak: 0.22 });
+        SY.burst(c, out, T + 0.62, { type: 'bandpass', f: 1700, f2: 650, q: 1.6, a: 0.1, d: 0.45, peak: 0.17 });
+        SY.burst(c, out, T + 0.58, { type: 'lowpass', f: 160, q: 0.8, a: 0.003, d: 0.07, peak: 0.28 });
+        SY.burst(c, out, T + 1.2, { type: 'lowpass', f: 140, q: 0.8, a: 0.003, d: 0.07, peak: 0.22 });
+        return T + 2.4;
+      });
+      var dr = SY.sched(c, t, dur, function (tt) {                                                           // капли по крыше, редко и не по ритму
+        var T = tt + 0.5 + Math.random() * 2.0;
+        SY.burst(c, out, T, { type: 'bandpass', f: 1300 + Math.random() * 1500, q: 2.2, a: 0.002, d: 0.035, peak: 0.08 + Math.random() * 0.08 });
+        SY.ping(c, out, T, { type: 'sine', f: 380 + Math.random() * 120, f2: 240, a: 0.002, d: 0.06, peak: 0.05 });
+        return T;
+      });
+      return { stop: function () { e.stop(); try { n.stop(); } catch (x) {} wip.stop(); dr.stop(); } };
+    },
+    /* 4.5, СУ-5: мотор «задумывается» — неровный ход, пропуски, кашель */
+    sick: function (c, out, t, d, dur) {
+      var e = SY.engine(c, out, t, { f: 26, rough: 0.9, lp: 430, level: 0.5, intake: 0.05, vib: 0.02 });
+      var m = SY.sched(c, t, dur, function (tt) {
+        var T = tt + 0.35 + Math.random() * 0.8;
+        e.g.gain.setTargetAtTime(0.1, T, 0.01); e.g.gain.setTargetAtTime(0.5, T + 0.09, 0.03);
+        SY.burst(c, out, T + 0.02, { type: 'lowpass', f: 320, q: 0.8, a: 0.004, d: 0.1, peak: 0.28 });
+        return T + 0.1;
+      });
+      return { stop: function () { e.stop(); m.stop(); } };
+    },
+    /* 4.5, СУ-6 и дальше: стук. Резкие металлические щелчки 1–3 кГц поверх нервного мотора; в 4.5 стук нарастает (ramp, с),
+       в тихом варианте — реже и мягче. Нет ни в одном другом звуке игры: «не стучит» из 5.6 слышно как его отсутствие */
+    knock: function (c, out, t, d, dur) {
+      var e = SY.engine(c, out, t, { f: 36, rough: 0.35, lp: 520, level: 0.42, intake: 0.05 });
+      var r0 = d.rate || 8, r1 = d.rate2 || r0, a0 = d.a0 == null ? 1 : d.a0, ramp = d.ramp || 0, t0 = t;
+      var k = SY.sched(c, t, dur, function (tt) {
+        var p = ramp ? Math.min(1, (tt - t0) / ramp) : 0, rate = r0 + (r1 - r0) * p, amp = a0 + (1 - a0) * p;
+        SY.ping(c, out, tt, { type: 'sine', f: 1150, f2: 620, a: 0.001, d: 0.075, peak: 0.55 * amp });
+        SY.ping(c, out, tt, { type: 'triangle', f: 2750, f2: 2150, a: 0.001, d: 0.04, peak: 0.18 * amp });
+        SY.ping(c, out, tt, { type: 'sine', f: 98, f2: 66, a: 0.001, d: 0.055, peak: 0.26 * amp });
+        SY.burst(c, out, tt, { type: 'bandpass', f: 2400, q: 5, a: 0.001, d: 0.025, peak: 0.3 * amp });
+        return tt + (1 / rate) * (0.94 + Math.random() * 0.12);
+      });
+      return { stop: function () { e.stop(); k.stop(); } };
+    },
+    /* 5.6 и 6.5: ровный, чистый холостой ход. Ни щелчков, ни неровности — только устойчивое гудение без высоких частот */
+    clean: function (c, out, t, d) {
+      var e = SY.engine(c, out, t, { f: d.f || 24.5, rough: 0.03, lp: d.lp || 520, level: 0.55, intake: 0.025, vib: 0.004 });
+      return { stop: function () { e.stop(); } };
+    },
+    /* 2.4 (и «Старт!» в 1.1 и 6.5): рёв двигателя и крошка из-под колёс. spray: 'snow' | 'mud' */
+    launch: function (c, out, t, d) {
+      var e = SY.engine(c, out, t, { f: 22, rough: 0.1, lp: 500, level: 0.0001, intake: 0 }), snow = d.spray !== 'mud', L = 4.4;
+      e.f(t, 22, t + 0.38, 95); e.f(t + 0.38, 95, t + 0.7, 68); e.f(t + 0.7, 68, t + 2.7, 178); e.f(t + 2.7, 178, t + L, 190);
+      e.lp.frequency.setValueAtTime(500, t); e.lp.frequency.linearRampToValueAtTime(2600, t + 0.9); e.lp.frequency.linearRampToValueAtTime(900, t + L);
+      e.g.gain.setValueAtTime(0.0001, t); e.g.gain.linearRampToValueAtTime(0.4, t + 0.1); e.g.gain.linearRampToValueAtTime(0.62, t + 0.4);
+      e.g.gain.linearRampToValueAtTime(0.5, t + 0.75); e.g.gain.linearRampToValueAtTime(0.62, t + 2.5); e.g.gain.linearRampToValueAtTime(0.0001, t + L);
+      var s = SY.ns(c, t, L), f = c.createBiquadFilter(), g = c.createGain();                                   // крошка из-под колёс
+      f.type = 'bandpass'; f.frequency.value = snow ? 2600 : 900; f.Q.value = snow ? 0.5 : 0.8;
+      g.gain.setValueAtTime(0.0001, t + 0.15); g.gain.linearRampToValueAtTime(snow ? 0.2 : 0.3, t + 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + L);
+      s.connect(f); f.connect(g); g.connect(out);
+      SY.ping(c, out, t + 0.6, { type: 'sine', f: 1700, f2: 3500, a: 0.2, d: 1.8, peak: 0.02 });                // свист турбины
+      e.stop(t + L + 0.1);
+      return L + 0.2;
+    },
+    /* 1.2 и 6.6 (вылет): удар, короткая тишина, скрежет и звон стекла */
+    crash: function (c, out, t) {
+      SY.ping(c, out, t, { type: 'sine', f: 95, f2: 26, a: 0.002, d: 0.6, peak: 1 });
+      SY.burst(c, out, t, { type: 'lowpass', f: 700, q: 0.7, a: 0.002, d: 0.45, peak: 0.9 });
+      SY.burst(c, out, t, { type: 'bandpass', f: 1500, q: 1.2, a: 0.002, d: 0.2, peak: 0.55 });
+      SY.burst(c, out, t + 0.07, { type: 'bandpass', f: 3200, q: 4, a: 0.002, d: 0.14, peak: 0.32 });
+      SY.ping(c, out, t + 0.28, { type: 'sine', f: 70, f2: 30, a: 0.003, d: 0.4, peak: 0.5 });
+      SY.burst(c, out, t + 0.3, { type: 'lowpass', f: 420, q: 0.8, a: 0.003, d: 0.3, peak: 0.35 });
+      SY.burst(c, out, t + 0.95, { type: 'bandpass', f: 2600, f2: 3600, q: 8, a: 0.35, d: 1.05, peak: 0.12 });      // долгий скрежет
+      for (var k = t + 0.95; k < t + 2.5; k += 0.012 + Math.random() * 0.03) {                                      // зёрна стекла
+        var fade = Math.max(0.15, 1 - (k - t - 0.95) / 1.7);
+        SY.burst(c, out, k, { type: 'bandpass', f: 3000 + Math.random() * 2600, q: 14, a: 0.001, d: 0.015 + Math.random() * 0.02, peak: (0.05 + Math.random() * 0.08) * fade });
+      }
+      return 2.7;
+    },
+    /* 4.6: мотор глохнет под аркой финиша — обороты падают, пропуски чаще, последний кашель, накат по гравию */
+    stall: function (c, out, t) {
+      var e = SY.engine(c, out, t, { f: 58, rough: 0.5, lp: 480, level: 0.5, intake: 0.04 });
+      e.f(t, 58, t + 2.2, 15);
+      [0.45, 0.9, 1.3, 1.65, 1.92].forEach(function (q) { e.g.gain.setTargetAtTime(0.08, t + q, 0.01); e.g.gain.setTargetAtTime(0.5, t + q + 0.08, 0.03); });
+      e.g.gain.setTargetAtTime(0.0001, t + 2.3, 0.02);
+      SY.burst(c, out, t + 2.22, { type: 'lowpass', f: 300, q: 0.8, a: 0.004, d: 0.16, peak: 0.5 });
+      SY.ping(c, out, t + 2.22, { type: 'sine', f: 62, f2: 30, a: 0.003, d: 0.2, peak: 0.45 });
+      SY.burst(c, out, t + 0.3, { type: 'bandpass', f: 520, q: 0.6, a: 0.5, d: 3.4, peak: 0.12 });                   // накат по гравию
+      e.stop(t + 2.6);
+      return 4.6;
+    },
+    /* 6.6: финишный баннер, сигнал КВ, штамп в карте */
+    finish: function (c, out, t) {
+      SY.burst(c, out, t, { type: 'bandpass', f: 500, f2: 3000, q: 0.9, a: 0.05, d: 0.28, peak: 0.3 });
+      SY.burst(c, out, t + 0.3, { type: 'bandpass', f: 3000, f2: 700, q: 0.9, a: 0.01, d: 0.55, peak: 0.26 });
+      SY.ping(c, out, t + 1.0, { type: 'sine', f: 1900, a: 0.003, d: 0.1, peak: 0.2 });
+      SY.ping(c, out, t + 1.2, { type: 'sine', f: 1900, a: 0.003, d: 0.1, peak: 0.2 });
+      SY.ping(c, out, t + 1.95, { type: 'sine', f: 150, f2: 55, a: 0.002, d: 0.1, peak: 0.8 });
+      SY.burst(c, out, t + 1.95, { type: 'highpass', f: 2500, q: 0.7, a: 0.001, d: 0.025, peak: 0.3 });
+      SY.burst(c, out, t + 2.08, { type: 'bandpass', f: 4200, q: 1.2, a: 0.01, d: 0.12, peak: 0.07 });
+      return 2.8;
+    }
+  };
+
+  /* --- воспроизведение: из файла (def.src) или синтезом --- */
+  function sndFile(id, d, cb) {                         // буфер из файла; при file:// (fetch закрыт) — null, звук играет обычным <audio>
+    var b = AMB.buf[id], c = musCtx();
+    if (b) { cb(b.buf); return; }
+    b = AMB.buf[id] = { buf: null, cbs: [cb], bad: false };
+    fetch(d.src).then(function (r) { return r.arrayBuffer(); }).then(function (ab) { return new Promise(function (ok, bad) { c.decodeAudioData(ab, ok, bad); }); })
+      .then(function (buf) { b.buf = buf; b.cbs.splice(0).forEach(function (f) { f(buf); }); })
+      .catch(function () { b.bad = true; b.cbs.splice(0).forEach(function (f) { f(null); }); });
+  }
+  function playSnd(c, out, t, d, id, loop) {            // разовый: возвращает длительность
+    if (d.src) {
+      sndFile(id, d, function (buf) {
+        if (buf) { var s = c.createBufferSource(); s.buffer = buf; s.connect(out); s.start(c.currentTime); }
+        else { var a = new Audio(d.src); a.volume = Math.min(1, d.vol == null ? 0.7 : d.vol); var p = a.play(); if (p && p.catch) p.catch(function () {}); }
+      });
+      return d.len || 6;
+    }
+    var f = SYN[d.synth || id]; return f ? f(c, out, t, d) : 0;
+  }
+  function startBed(c, out, t, d, id) {
+    if (d.src) {
+      var h = { stop: function () { h.dead = true; if (h.s) { try { h.s.stop(); } catch (e) {} } if (h.a) h.a.pause(); } };
+      sndFile(id, d, function (buf) {
+        if (h.dead) return;
+        if (buf) { h.s = c.createBufferSource(); h.s.buffer = buf; h.s.loop = true; h.s.connect(out); h.s.start(c.currentTime); }
+        else { h.a = new Audio(d.src); h.a.loop = true; h.a.volume = Math.min(1, d.vol == null ? 0.4 : d.vol); out.gain.cancelScheduledValues(0); out.gain.value = 1; var p = h.a.play(); if (p && p.catch) p.catch(function () {}); }
+      });
+      return h;
+    }
+    var f = SYN[d.synth || id]; return f ? f(c, out, t, d) : null;
+  }
+  function fireSfx(id) {                                // разовый звук
+    window.dispatchEvent(new CustomEvent('vn:sfx', { detail: id }));
+    var d = (S.sounds || {})[id]; if (!d || !sfxOn()) return;
+    var c = musCtx(); if (!c) return;
+    if (c.state !== 'running') c.resume();
+    var out = c.createGain(); out.gain.value = d.vol == null ? 0.7 : d.vol; out.connect(sfxBus(c));
+    var len = playSnd(c, out, c.currentTime + 0.02, d, id) || 3;
+    AMB.busyUntil = Math.max(AMB.busyUntil, performance.now() + len * 1000 + 400);
+    setTimeout(function () { try { out.disconnect(); } catch (e) {} audSettle(); }, len * 1000 + 500);
+  }
+  function ambSync(ms) {                                // фон: привести слой в соответствие с желаемым и состоянием звука
+    var c = musCtx(); if (!c) return;
+    var want = sfxOn() ? AMB.want : null, cur = AMB.cur, fade = Math.max(0.04, (ms || 600) / 1000);
+    if (cur && cur.id === want) return;
+    if (cur) {
+      var o = cur.out, hh = cur.h, now = c.currentTime;
+      o.gain.cancelScheduledValues(now); o.gain.setValueAtTime(o.gain.value, now); o.gain.linearRampToValueAtTime(0, now + fade);
+      setTimeout(function () { if (hh) hh.stop(); try { o.disconnect(); } catch (e) {} audSettle(); }, fade * 1000 + 80);
+      AMB.cur = null;
+    }
+    if (want) {
+      var d = (S.sounds || {})[want]; if (!d) return;
+      if (c.state !== 'running') c.resume();
+      var out = c.createGain(), t = c.currentTime, v = d.vol == null ? 0.4 : d.vol;
+      out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(v, t + fade); out.connect(sfxBus(c));
+      var h = startBed(c, out, t + 0.02, d, want);
+      AMB.cur = { id: want, out: out, h: h };
+    }
+  }
+  function setAmb(v, instant) {
+    AMB.want = (v && v !== 'stop') ? v : null;
+    if (!AMB.hold) ambSync(instant ? 40 : 700);
   }
   (function () { var b = document.getElementById('sndbtn'); if (!b) return; setMuted(MUS.muted); b.addEventListener('click', function () { MUS.unlocked = true; setMuted(!MUS.muted); b.blur(); }); })();
 
@@ -1033,6 +1296,8 @@
     if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
     if (b.hud) setHud(b.hud);
     if (b.music !== undefined) setMusic(b.music, !animate);
+    if (b.amb !== undefined) setAmb(b.amb, !animate);
+    if (b.sfx && animate) fireSfx(b.sfx);
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
     if (b.big !== undefined) el.frame.classList.toggle('inds-big', !!b.big);
@@ -1064,7 +1329,7 @@
   }
   function replay(upTo) {                           // мгновенно восстановить фон/шапку/индикаторы/флаги по реплику upTo включительно
     stats = { car: null, trust: null }; indState = { car: {}, trust: {} };
-    snaps = {}; dampPending = false; chap0 = null; MUS.want = null;
+    snaps = {}; dampPending = false; chap0 = null; MUS.want = null; AMB.want = null; AMB.hold = true;
     el.frame.classList.remove('inds-big', 'inds-delta');
     for (var n = 0; n <= upTo; n++) {
       if (!visible(n)) continue;
@@ -1077,6 +1342,7 @@
         }
       }
     }
+    AMB.hold = false; ambSync(40);
   }
 
   /* ---------- показ реплики ---------- */
@@ -1305,8 +1571,9 @@
   function showCut(b, opts) {
     mode = 'cut'; cutAt = performance.now();
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
-    if (b.sfx) window.dispatchEvent(new CustomEvent('vn:sfx', { detail: b.sfx }));   // звук подключим позже
-    if (b.music !== undefined) setMusic(b.music);
+    if (b.music !== undefined) setMusic(b.music, !!opts.instant);
+    if (b.amb !== undefined) setAmb(b.amb, !!opts.instant);
+    if (b.sfx && !opts.instant) fireSfx(b.sfx);
     if (b.fx === 'crash') {
       openCut(true);
       if (!STATIC) { el.frame.classList.remove('shake'); void el.frame.offsetWidth; el.frame.classList.add('shake'); }
@@ -1593,7 +1860,15 @@
   /* фоны подгружаем заранее, чтобы смена кадра не мигала */
   setTimeout(function () { Object.keys(S.bgs).forEach(function (k) { var im = new Image(); im.src = S.bgs[k].src; }); }, 600);
 
-  window.__vn = { music: function () { var o = { want: MUS.want, unlocked: MUS.unlocked, muted: MUS.muted, hidden: MUS.hidden, paused: MUS.paused, ctx: MUS.ctx && MUS.ctx.state, tracks: {} }; Object.keys(MUS.trk).forEach(function (k) { var t = MUS.trk[k]; o.tracks[k] = t.el ? { fallback: true, paused: t.el.paused, vol: +t.el.volume.toFixed(3) } : { ready: !!t.buf, started: !!t.src, gain: +t.gain.gain.value.toFixed(3) }; }); return o; }, bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
+  window.__vn = { amb: function () { return { want: AMB.want, cur: AMB.cur && AMB.cur.id, on: sfxOn(), ctx: MUS.ctx && MUS.ctx.state, gain: AMB.cur ? +AMB.cur.out.gain.value.toFixed(3) : 0 }; },
+    fire: function (id) { fireSfx(id); },
+    sfxRender: function (id, sec, sr) {              // офлайн-рендер звука для проверки (массив отсчётов)
+      sr = sr || 22050; var oc = new OfflineAudioContext(1, Math.round(sr * sec), sr), out = oc.createGain(), d = (S.sounds || {})[id] || {};
+      out.gain.value = d.vol == null ? 0.5 : d.vol; out.connect(oc.destination);
+      (SYN[d.synth || id])(oc, out, 0, d, sec);
+      return oc.startRendering().then(function (b) { return Array.from(b.getChannelData(0)); });
+    },
+    music: function () { var o = { want: MUS.want, unlocked: MUS.unlocked, muted: MUS.muted, hidden: MUS.hidden, paused: MUS.paused, ctx: MUS.ctx && MUS.ctx.state, tracks: {} }; Object.keys(MUS.trk).forEach(function (k) { var t = MUS.trk[k]; o.tracks[k] = t.el ? { fallback: true, paused: t.el.paused, vol: +t.el.volume.toFixed(3) } : { ready: !!t.buf, started: !!t.src, gain: +t.gain.gain.value.toFixed(3) }; }); return o; }, bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
                   derived: function () { return derived(); }, snaps: function () { return snaps; },
                   protocol: function () { return Array.prototype.map.call(el.protoBody.querySelectorAll('tr'), function (r) { return Array.prototype.map.call(r.children, function (c) { return c.textContent; }); }); },
                   mode: function () { return mode; }, ended: function () { return ended; }, ending: function () { return endKey(); },
