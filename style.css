@@ -116,10 +116,9 @@ body { position: fixed; inset: 0; }
 @keyframes indnamelit { 0%, 55% { color: var(--amber); font-weight: 500; } 100% { color: inherit; } }
 @media (prefers-reduced-motion: reduce) { .ind.reveal::before { animation-duration: 3.2s; } }
 .ind-name { font-weight: 300; }
-/* два яруса на любом разрешении: мелкая подпись над значением (на узком — те же правила ниже) */
-.inds .ind { display: flex; flex-direction: column; align-items: flex-start; gap: calc(3 * var(--u)); line-height: 1.15; white-space: nowrap; }
+.inds .ind { display: flex; flex-direction: column; align-items: flex-start; gap: calc(4 * var(--u)); line-height: 1.15; white-space: nowrap; }
 .inds .ind-name { font-size: .62em; letter-spacing: .02em; color: var(--ink); }
-.inds .ind-word::before { content: none; }
+/* два яруса на любом разрешении: мелкая подпись над значением (на узком — те же правила ниже) */
 .ind-word { font-weight: 800; color: var(--amber); transition: color .4s; }
 .ind-word.zero { color: #ff7a59; }
 .ind-word.none { color: var(--ink-2); font-weight: 500; opacity: .85; }
@@ -128,7 +127,7 @@ body { position: fixed; inset: 0; }
 .ind-word[data-dir] { text-shadow: 0 0 calc(14 * var(--u)) currentColor; }
 /* разбор онборда: индикаторы крупно — второй рядом под шапкой, в плашках */
 .frame.inds-big .inds {
-  position: absolute; left: 0; right: 0; top: calc(112 * var(--u)); gap: calc(40 * var(--u)); justify-content: center; flex: none;
+  position: absolute; left: 0; right: 0; width: auto; justify-self: stretch; grid-column: auto; top: calc(112 * var(--u)); gap: calc(40 * var(--u)); justify-content: center; flex: none;
   padding: 0 calc(60 * var(--u));
 }
 .frame.inds-big .ind {
@@ -138,22 +137,23 @@ body { position: fixed; inset: 0; }
   box-shadow: 0 0 calc(24 * var(--u)) rgba(255, 171, 0, .16);
 }
 
-.ind-val { display: inline-flex; align-items: center; gap: calc(8 * var(--u)); vertical-align: baseline; }
-.ind-model { font-weight: 300; opacity: .8; }
-/* деления машины: горят = состояние; пустые — контур, так что читается не только цветом */
-.ind-seg { display: inline-flex; gap: calc(3 * var(--u)); align-items: flex-end; }
-.ind-seg i { width: calc(8 * var(--u)); height: calc(15 * var(--u)); min-width: 6px; min-height: 10px; border-radius: 2px; box-sizing: border-box;
-             border: 1px solid rgba(236, 230, 214, .45); background: transparent; transition: background .35s, border-color .35s; }
-.ind-seg i:nth-child(1) { height: calc(9 * var(--u)); min-height: 6px; }
-.ind-seg i:nth-child(2) { height: calc(12 * var(--u)); min-height: 8px; }
-.ind-seg i:nth-child(3) { height: calc(15 * var(--u)); min-height: 10px; }
-.ind-seg i:nth-child(4) { height: calc(18 * var(--u)); min-height: 12px; }
+/* индикатор: десять делений сверху, мелкая подпись снизу; слов состояния в интерфейсе нет (они только для скринридера) */
+.ind-seg { display: flex; gap: calc(3 * var(--u)); }
+.ind-seg i { flex: none; width: calc(19 * var(--u)); height: calc(9 * var(--u)); min-width: 9px; min-height: 6px; border-radius: 1px; box-sizing: border-box;
+             border: 1px solid rgba(236, 230, 214, .6); background: transparent; transition: background .35s, border-color .35s; }
 .ind-seg i.on { background: var(--amber); border-color: var(--amber); }
-.ind-seg.zero i { border-color: #ff7a59; border-style: dashed; }
+.ind-seg.zero i { border-color: #ff7a59; border-style: dashed; }                       /* «кончилась» / «потеряно»: пустая шкала, красный пунктир */
+.ind-seg.none i { border-color: rgba(236, 230, 214, .35); }                            /* нет машины */
 .ind-seg i.blink { animation: segblink 1.4s ease-out; }
+.ind-seg i.blink-down { animation: segdown 1.4s ease-out; }
+.ind-seg.pulse { animation: segpulse 1.6s ease-out; }
 @keyframes segblink { 0%, 30% { background: #fff3d1; box-shadow: 0 0 calc(10 * var(--u)) var(--amber); } 100% { box-shadow: 0 0 0 transparent; } }
-@media (prefers-reduced-motion: reduce) { .ind-seg i.blink { animation: none; } }
-.ind-word.flash { animation: indflash 1.6s ease-out; }
+@keyframes segdown  { 0%, 30% { background: #ff7a59; border-color: #ff7a59; box-shadow: 0 0 calc(10 * var(--u)) #ff7a59; } 100% { box-shadow: 0 0 0 transparent; } }
+@keyframes segpulse { 0% { filter: drop-shadow(0 0 0 transparent); } 25% { filter: drop-shadow(0 0 calc(8 * var(--u)) var(--amber)); } 100% { filter: drop-shadow(0 0 0 transparent); } }
+.ind-seg i.gain { background: #fff3d1; border-color: #fff3d1; }
+.ind-seg i.lost { border-color: #ff7a59; border-style: dashed; }
+@media (prefers-reduced-motion: reduce) { .ind-seg i.blink, .ind-seg i.blink-down, .ind-seg.pulse { animation: none; } }
+.ind-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @keyframes indflash {
   0% { opacity: 0; transform: translateY(-5px); text-shadow: 0 0 0 currentColor; }
   25% { opacity: 1; transform: none; text-shadow: 0 0 calc(18 * var(--u)) currentColor; }
@@ -537,8 +537,8 @@ body { position: fixed; inset: 0; }
   .ind-name { font-family: var(--f-head); font-size: max(9px, 9.5 * var(--u)); letter-spacing: .02em; font-weight: 300; color: var(--ink); }
   .ind-word { font-size: max(12px, 13 * var(--u)); }
   .ind-word::before { content: none; }
-  .ind-val { gap: 6px; }
-  .ind-seg i { width: 6px; min-width: 6px; }
+  .ind-seg { gap: 2px; }
+  .ind-seg i { width: 10px; min-width: 10px; height: 7px; }
   .hud-btns { gap: 8px; }
   .frame { --btn: 44px; }
   .sndbtn { width: 44px; height: 44px; border-radius: 8px; }
@@ -559,7 +559,8 @@ body { position: fixed; inset: 0; }
   .cut-chap-k { font-size: 12px; }
   .cut-chap-t { font-size: max(30px, 40 * var(--u)); margin-top: 12px; }
   .frame.inds-big .inds { top: 56px; gap: 14px; padding: 0 14px; }
-  .frame.inds-big .ind { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 6px 12px; border-radius: 8px; }
+  .frame.inds-big .ind { gap: 5px; padding: 8px 12px; border-radius: 8px; }
+  .frame.inds-big .ind-seg i { width: 13px; height: 9px; }
   .frame.inds-big .ind-name { font-size: 13px; }
   .frame.inds-big .ind-word { font-size: 15px; }
   .frame.inds-big .ind-word::before { content: none; }
