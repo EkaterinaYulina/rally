@@ -103,7 +103,7 @@
   function setMusic(v, instant) {
     MUS.want = (v && v !== 'stop') ? v : null;
     var tr = MUS.want && (S.tracks || {})[MUS.want];
-    musSync(instant ? 40 : (v === 'stop' ? 900 : ((tr && tr.fadeIn) || 1400)));      // смена трека — кроссфейд
+    musSync(instant ? 40 : (v === 'stop' ? 3000 : ((tr && tr.fadeIn) || 1400)));      // смена трека — кроссфейд
   }
   function musUnlock() { if (MUS.unlocked) return; MUS.unlocked = true; musSync(1400); }
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, musUnlock, { passive: true }); });
