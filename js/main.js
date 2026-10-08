@@ -17,8 +17,8 @@
     bgA: $('bgA'), bgB: $('bgB'), bgLabel: $('bgLabel'),
     locPre: $('locPre'), locName: $('locName'), locKm: $('locKm'),
     portraits: {},
-    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas') },
-           trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas') } },
+    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas'), seg: $('indCarSeg') },
+           trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas'), seg: $('indTrustSeg') } },
     proto: $('proto'), protoTitle: $('protoTitle'), protoSub: $('protoSub'), protoBody: $('protoBody'), protoSheet: document.querySelector('.proto-sheet'), protoGap: $('protoGap'), scrHint: $('scrHint')
   };
 
@@ -340,25 +340,41 @@
     document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
-  function setIndName(node, name) { node.textContent = name; }       // название показателя всегда целиком: «Доверие штурмана»
+  function segN(k, word) {                           // сколько из 10 делений горит, если число неизвестно (слово поставлено вручную): «кончилась» / «Нет» — 0
+    if (S.zeroWords.indexOf(word) >= 0 || S.noneWords.indexOf(word) >= 0) return 0;
+    var r = S.bandRep[k][word]; return r == null ? 0 : r;
+  }
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
     var wasNone = s.word != null && S.noneWords.indexOf(s.word) >= 0;
     if (patch.name) s.name = patch.name;
     if (patch.word) s.word = patch.word;
-    setIndName(t.name, s.name); t.word.textContent = s.word;
-    t.word.classList.toggle('zero', S.zeroWords.indexOf(s.word) >= 0);
-    t.word.classList.toggle('none', S.noneWords.indexOf(s.word) >= 0);
+    if (patch.model) s.model = patch.model;
+    var isNone = S.noneWords.indexOf(s.word) >= 0, zero = S.zeroWords.indexOf(s.word) >= 0;
+    t.name.textContent = k === 'car' ? (s.model || S.carModel) : s.name;    // подпись под делениями: у машины — модель («Fiesta R2T»), слово «Машина» только когда машины нет; у штурмана — «Доверие штурмана»
+    t.box.classList.toggle('gone', isNone);              // нет машины / нет штурмана — индикатор пропадает
+    t.word.textContent = s.word;                       // слово состояния в интерфейсе не показывается — только для скринридера
+    var n = patch.n != null ? patch.n : (patch.word ? segN(k, patch.word) : (s.n == null ? 0 : s.n));
+    var old = s.n; s.n = n;
+    if (t.seg) {
+      var kids = t.seg.children;
+      for (var q = 0; q < kids.length; q++) {
+        kids[q].classList.toggle('on', q < n);
+        kids[q].classList.remove('gain', 'lost');
+        if (animate && !STATIC && old != null && q >= Math.min(n, old) && q < Math.max(n, old)) { kids[q].classList.remove('blink', 'blink-down'); void kids[q].offsetWidth; kids[q].classList.add(n > old ? 'blink' : 'blink-down'); }
+      }
+      t.seg.classList.toggle('full', n >= 9);
+      t.seg.classList.toggle('zero', n === 0 && zero);
+      t.seg.classList.toggle('none', n === 0 && isNone);
+    }
     t.box.setAttribute('aria-label', s.name + ' ' + s.word);
     clearTimeout(dirT[k]); t.word.removeAttribute('data-dir');
     if (!animate || STATIC) { clearTimeout(revT[k]); t.box.classList.remove('reveal'); }
     if (animate && !STATIC) {
-      if (dir) { t.word.setAttribute('data-dir', dir); dirT[k] = setTimeout(function () { t.word.removeAttribute('data-dir'); }, 2000); }
       if (wasNone && patch.word && S.noneWords.indexOf(patch.word) < 0) {   // индикатор появился: подсветить всю плашку
         t.box.classList.remove('reveal'); void t.box.offsetWidth; t.box.classList.add('reveal');
         clearTimeout(revT[k]); revT[k] = setTimeout(function () { t.box.classList.remove('reveal'); }, 3200);
       }
-      if (patch.word || dir) { t.word.classList.remove('flash'); void t.word.offsetWidth; t.word.classList.add('flash'); }
     }
   }
   function wordFor(k, v) {
@@ -374,7 +390,7 @@
       nv = Math.max(0, Math.min(10, nv));
       stats[k] = nv;
       var dir = ((e.add !== undefined || e.dir) && old != null && nv !== old) ? (nv > old ? 'up' : 'down') : null;
-      setInd(k, { name: S.bands[k].name, word: wordFor(k, nv) }, animate, dir);
+      setInd(k, { name: S.bands[k].name, word: wordFor(k, nv), n: nv, model: k === 'car' ? S.carModel : undefined }, animate, dir);
       if (animate && dir) el.sr.textContent = S.bands[k].name + (dir === 'up' ? ' выросла. ' : ' упала. ') + wordFor(k, nv);
     });
   }
@@ -1129,12 +1145,12 @@
     if (b.big !== undefined) el.frame.classList.toggle('inds-big', !!b.big);
     if (b.big === false && b.delta === undefined) showDelta(false);              // новая глава: отметка «было» от прошлой не должна висеть под маленькими индикаторами
     if (b.ind) Object.keys(b.ind).forEach(function (k) { setInd(k, b.ind[k], animate); });
-    if (b.chapStart) chap0 = { car: stats.car, trust: stats.trust, carW: indState.car.word, trustW: indState.trust.word };
+    if (b.chapStart) chap0 = { car: stats.car, trust: stats.trust, carW: indState.car.word, trustW: indState.trust.word, carN: indState.car.n, trustN: indState.trust.n };
     if (b.snap) snaps[b.snap] = { car: stats.car, trust: stats.trust };
     if (b.stat) applyStats(b.stat, animate);
     if (b.repair) { var rv = repairCar(); if (rv != null) applyStats({ car: { set: rv, dir: true } }, animate); }   // капиталка (5.6): 🔧 возвращается на уровень до «Печор» с поправками
     if (b.delta !== undefined) showDelta(!!b.delta);
-    if (b.pulse && animate && !STATIC) b.pulse.forEach(function (k) { var w = el.ind[k].word; w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); });
+    if (b.pulse && animate && !STATIC) b.pulse.forEach(function (k) { var w = el.ind[k].seg; w.classList.remove('pulse'); void w.offsetWidth; w.classList.add('pulse'); });
   }
   function wordLevel(k, w) {                          // место слова в полосе: чем выше, тем лучше; слова обнуления («кончилась», «потеряно») — ниже всех
     if (S.zeroWords.indexOf(w) >= 0) return -1;
@@ -1142,15 +1158,15 @@
     for (var q = 0; q < ws.length; q++) if (ws[q][2] === w) return ws.length - q;
     return 0;
   }
-  function showDelta(on) {                          // крупные индикаторы: что изменилось с начала главы
+  function showDelta(on) {                          // крупные индикаторы: что изменилось с начала главы — деления: прибавилось (светлые) / убыло (красный пунктир)
     el.frame.classList.toggle('inds-delta', on);
     ['car', 'trust'].forEach(function (k) {
-      var w = el.ind[k].was; if (!w) return;
-      if (!on || !chap0 || chap0[k] == null || stats[k] == null) { w.textContent = ''; return; }
-      var a = chap0[k + 'W'] || wordFor(k, chap0[k]), b = indState[k].word || wordFor(k, stats[k]);
-      var up = wordLevel(k, b) > wordLevel(k, a);                                // направление — по словам, которые видит игрок («кончилась» ниже любого слова полосы)
-      w.textContent = a === b ? '' : (up ? '▲ было: ' : '▼ было: ') + a;   // без изменений — без подписи
-      w.setAttribute('data-dir', a === b ? '' : (up ? 'up' : 'down'));
+      var t = el.ind[k], kids = t.seg ? t.seg.children : [], was = chap0 ? chap0[k + 'N'] : null, cur = indState[k].n;
+      if (t.was) { t.was.textContent = ''; t.was.removeAttribute('data-dir'); }
+      for (var q = 0; q < kids.length; q++) {
+        var g = on && was != null && cur != null && q >= was && q < cur, l = on && was != null && cur != null && q >= cur && q < was;
+        kids[q].classList.toggle('gain', g); kids[q].classList.toggle('lost', l);
+      }
     });
   }
   function replay(upTo) {                           // мгновенно восстановить фон/шапку/индикаторы/флаги по реплику upTo включительно
