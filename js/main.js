@@ -281,20 +281,47 @@
   function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
 
   /* ---------- шапка, индикаторы, фон ---------- */
+  /* Шапка слева, две строки: крупно — название ралли (или места, если мы не на ралли); мелко — всё остальное: время, СУ с названием и километражем, уточнение.
+     Время (h.clk = 'ЧЧ:ММ') идёт: одна игровая минута за 6 секунд, двоеточие мигает раз в секунду; в снимках (?static) часы стоят. */
+  var clkKey = null, clkBase = 0, clkT0 = 0, clkTimer = null, clkNode = null, clkLast = '';
+  function clkText() {
+    var m = (clkBase + (STATIC ? 0 : Math.floor((Date.now() - clkT0) / 6000))) % 1440;
+    return [('0' + Math.floor(m / 60)).slice(-2), ('0' + (m % 60)).slice(-2)];
+  }
+  function clkTick() {
+    if (!clkNode) return;
+    var t = clkText(), k = t.join(':');
+    if (k === clkLast) return; clkLast = k;
+    clkNode.firstChild.nodeValue = t[0]; clkNode.lastChild.nodeValue = t[1];
+    document.getElementById('loc').title = locTitle;
+  }
+  var locTitle = '';
   function setHud(h) {
-    el.locPre.hidden = !h.pre; el.locPre.textContent = h.pre || '';
+    el.locPre.hidden = true; el.locPre.textContent = '';
     el.locName.textContent = h.name;
-    el.locKm.hidden = !h.tail; el.locKm.textContent = h.tail || '';
-    var full = ((h.pre ? h.pre + ' ' : '') + h.name + (h.tail ? ' · ' + h.tail : '')); document.getElementById('loc').title = full;   // полная подпись по наведению, если на узком экране она обрезана
+    var sub = [];
+    if (h.pre && h.pre !== 'Ралли') sub.push(h.pre.toLowerCase());          // «Ралли-спринт» — это уточнение, а не название
+    if (h.tail) sub.push(h.tail);
+    el.locKm.textContent = ''; clkNode = null; clearInterval(clkTimer);
+    var hasClk = !!h.clk;
+    if (hasClk) {
+      var p = h.clk.split(':'), base = (+p[0]) * 60 + (+p[1]);
+      if (clkKey !== h.clk) { clkKey = h.clk; clkBase = base; clkT0 = Date.now(); }   // тот же час в соседних репликах не сбрасывает ход часов
+      var c = document.createElement('span'); c.className = 'clk';
+      var t = clkText(); clkLast = t.join(':');
+      c.appendChild(document.createTextNode(t[0]));
+      var col = document.createElement('i'); col.className = 'clk-c'; col.textContent = ':'; c.appendChild(col);
+      c.appendChild(document.createTextNode(t[1]));
+      el.locKm.appendChild(c); clkNode = c;
+      if (sub.length) el.locKm.appendChild(document.createTextNode(' · ' + sub.join(' · ')));
+      if (!STATIC) clkTimer = setInterval(clkTick, 1000);
+    } else { clkKey = null; el.locKm.textContent = sub.join(' · '); }
+    el.locKm.hidden = !(hasClk || sub.length);
+    locTitle = h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
+    document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
-  var NAME_SHORT = { 'Доверие штурмана': 'Штурман' };       // короткое название для узкого экрана (допустимо по правилам HUD)
-  function setIndName(node, name) {
-    node.textContent = '';
-    var f = document.createElement('span'); f.className = 'nm-full'; f.textContent = name; node.appendChild(f);
-    node.classList.toggle('has-short', !!NAME_SHORT[name]);
-    if (NAME_SHORT[name]) { var sh = document.createElement('span'); sh.className = 'nm-short'; sh.textContent = NAME_SHORT[name]; node.appendChild(sh); }
-  }
+  function setIndName(node, name) { node.textContent = name; }       // название показателя всегда целиком: «Доверие штурмана»
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
     var wasNone = s.word != null && S.noneWords.indexOf(s.word) >= 0;

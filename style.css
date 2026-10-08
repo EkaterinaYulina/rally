@@ -90,10 +90,12 @@ body { position: fixed; inset: 0; }
   grid-row: 1 / span 2; align-self: center;
 }
 .loc-txt { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.loc-rally { font-weight: 300; }
 .loc-name  { font-weight: 800; }
 .loc-km    { grid-column: 2; grid-row: 2; min-width: 0; margin-top: calc(3 * var(--u)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
              font-family: var(--f-mono); font-weight: 500; font-size: .74em; letter-spacing: 0; color: var(--ink-2); }
+.clk { font-variant-numeric: tabular-nums; color: var(--ink); }
+.clk-c { font-style: normal; animation: clkblink 1s steps(1, end) infinite; }
+@keyframes clkblink { 50% { opacity: .25; } }
 
 .inds { grid-column: 2; display: flex; gap: calc(34 * var(--u)); justify-content: center; justify-self: center; }
 .ind  { font-size: calc(18 * var(--u)); position: relative; }
@@ -503,10 +505,10 @@ body { position: fixed; inset: 0; }
   .loc-dot { width: 8px; height: 8px; }
   .inds { gap: 14px; justify-content: center; min-width: 0; }
   .ind.reveal::before { inset: -6px -8px; border-radius: 8px; }
-  /* «Машина как новая» и «Доверие штурмана складывается» — каждый показатель в одну строку */
-  .ind { display: flex; flex-direction: row; align-items: center; gap: 5px; line-height: 1.2; white-space: nowrap; padding-top: 0; }
-  .ind-name { font-size: max(11px, 11 * var(--u)); letter-spacing: .01em; font-weight: 400; }
-  .ind-word { font-size: max(10.5px, 11 * var(--u)); }
+  /* показатель на телефоне: мелкая подпись над словом — «Доверие штурмана» остаётся целиком, шапка не раздувается */
+  .ind { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.15; white-space: nowrap; padding-top: 0; }
+  .ind-name { font-family: var(--f-mono); font-size: max(8.5px, 9 * var(--u)); letter-spacing: .06em; font-weight: 500; color: var(--ink-2); }
+  .ind-word { font-size: max(12px, 13 * var(--u)); }
   .ind-word::before { content: none; }
   .hud-btns { gap: 8px; }
   .sndbtn { width: 44px; height: 44px; border-radius: 8px; }
@@ -572,15 +574,6 @@ body { position: fixed; inset: 0; }
   .tt-tab { font-size: 12.5px; padding: 8px 12px; min-height: 36px; }
   .tt-sheet { width: min(640px, 100%); padding: 10px 14px; border-radius: 12px; }
   .tt.st .proto-tbl .c-gap { width: 70px; }
-}
-
-/* Узкий телефон (поле уже 800): «Доверие штурмана» сокращается до «Штурман», иначе показатели и кнопки не помещаются в одну строку шапки */
-.nm-short { display: none; }
-@container stage (max-height: 480px) and (max-width: 799px) {
-  .frame:not(.inds-big) .ind-name.has-short .nm-full { display: none; }
-  .frame:not(.inds-big) .ind-name.has-short .nm-short { display: inline; }
-  .inds { gap: 10px; }
-  .hud { gap: 8px; }
 }
 
 /* Очень низкое поле (телефон с баннером, ≤ 350) */
