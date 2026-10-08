@@ -281,18 +281,68 @@
   function clear() { try { localStorage.removeItem(KEY); } catch (e) {} }
 
   /* ---------- шапка, индикаторы, фон ---------- */
+  /* Шапка слева, две строки: крупно — название ралли (или места, если мы не на ралли); мелко — всё остальное: время, СУ с названием и километражем, уточнение.
+     Время (h.clk = 'ЧЧ:ММ') идёт: одна игровая минута за 6 секунд, двоеточие мигает раз в секунду; в снимках (?static) часы стоят. */
+  var clkKey = null, clkBase = 0, clkT0 = 0, clkTimer = null, clkNode = null, clkLast = '';
+  function clkText() {
+    var m = (clkBase + (STATIC ? 0 : Math.floor((Date.now() - clkT0) / 6000))) % 1440;
+    return [('0' + Math.floor(m / 60)).slice(-2), ('0' + (m % 60)).slice(-2)];
+  }
+  function clkTick() {
+    if (!clkNode) return;
+    var t = clkText(), k = t.join(':');
+    if (k === clkLast) return; clkLast = k;
+    clkNode.firstChild.nodeValue = t[0]; clkNode.lastChild.nodeValue = t[1];
+    document.getElementById('loc').title = locTitle;
+  }
+  var locTitle = '', lastHud = null, curScene = null;
+  /* «N дней до ралли …»: для сцен без своей мелкой подписи */
+  function daysTail(scene) {
+    var d0 = S.sceneDate && S.sceneDate[scene]; if (!d0 || !S.events) return '';
+    var t0 = Date.parse(d0 + 'T12:00:00Z');
+    for (var i = 0; i < S.events.length; i++) {
+      var n = Math.round((Date.parse(S.events[i].date + 'T12:00:00Z') - t0) / 86400000);
+      if (n < 0) continue;
+      if (n === 0) return 'Ралли сегодня';
+      var m10 = n % 10, m100 = n % 100, w = (m10 === 1 && m100 !== 11) ? 'день' : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'дня' : 'дней';
+      return n + ' ' + w + ' до ' + S.events[i].to;
+    }
+    return '';
+  }
   function setHud(h) {
-    el.locPre.hidden = !h.pre; el.locPre.textContent = h.pre || '';
+    lastHud = h; if (h.scene) curScene = h.scene;      // h.scene — если сцена начинается условной репликой и до шапки «scene» не дошёл
+    el.locPre.hidden = !h.pre; el.locPre.textContent = h.pre || '';       // «Ралли» остаётся перед названием
     el.locName.textContent = h.name;
-    el.locKm.hidden = !h.tail; el.locKm.textContent = h.tail || '';
+    var sub = [];
+    var tailTxt = h.tail || daysTail(curScene);
+    if (tailTxt) sub.push(tailTxt);
+    el.locKm.textContent = ''; clkNode = null; clearInterval(clkTimer);
+    var clkStr = h.clk || (S.sceneClock && S.sceneClock[curScene]) || null;
+    var hasClk = !!clkStr;
+    if (hasClk) {
+      var p = clkStr.split(':'), base = (+p[0]) * 60 + (+p[1]);
+      if (clkKey !== clkStr) { clkKey = clkStr; clkBase = base; clkT0 = Date.now(); }   // тот же час в соседних репликах не сбрасывает ход часов
+      var c = document.createElement('span'); c.className = 'clk';
+      var t = clkText(); clkLast = t.join(':');
+      c.appendChild(document.createTextNode(t[0]));
+      var col = document.createElement('i'); col.className = 'clk-c'; col.textContent = ':'; c.appendChild(col);
+      c.appendChild(document.createTextNode(t[1]));
+      el.locKm.appendChild(c); clkNode = c;
+      if (sub.length) el.locKm.appendChild(document.createTextNode(' · ' + sub.join(' · ')));
+      if (!STATIC) clkTimer = setInterval(clkTick, 1000);
+    } else { clkKey = null; el.locKm.textContent = sub.join(' · '); }
+    el.locKm.hidden = !(hasClk || sub.length);
+    locTitle = (h.pre ? h.pre + ' ' : '') + h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
+    document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
+  function setIndName(node, name) { node.textContent = name; }       // название показателя всегда целиком: «Доверие штурмана»
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
     var wasNone = s.word != null && S.noneWords.indexOf(s.word) >= 0;
     if (patch.name) s.name = patch.name;
     if (patch.word) s.word = patch.word;
-    t.name.textContent = s.name; t.word.textContent = s.word;
+    setIndName(t.name, s.name); t.word.textContent = s.word;
     t.word.classList.toggle('zero', S.zeroWords.indexOf(s.word) >= 0);
     t.word.classList.toggle('none', S.noneWords.indexOf(s.word) >= 0);
     t.box.setAttribute('aria-label', s.name + ' ' + s.word);
@@ -1038,7 +1088,8 @@
   }
   function applyProps(b, animate) {
     if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
-    if (b.hud) setHud(b.hud);
+    if (b.scene) curScene = b.scene;
+    if (b.hud) setHud(b.hud); else if (b.scene && lastHud) setHud(lastHud);   // новая сцена без своей шапки: часы переходят на её время
     if (b.music !== undefined) setMusic(b.music, !animate, b.musicFade);
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
@@ -1558,7 +1609,8 @@
     }
     return { stages: st, stand: stand, team: team, any: stand >= 0 || Object.keys(st).length > 0 };
   }
-  function ttBtnSync() { var a = ttAvail(); $('ttbtn').hidden = !a.any; return a; }
+  function ttBtnSync() { return ttAvail(); }          // кнопка в шапке видна всегда; пока протоколов нет, окно показывает пустое состояние
+  function ttEmpty(on) { $('ttEmpty').hidden = !on; $('ttBodyWrap').hidden = on; }   // вкладки остаются: все этапы видны, непройденные неактивны
   function ttData(tab, av) {                        // → {title:[pre,name], sub, gap, rows, alex, stand}
     var dv = derived(), t = dv.t.slice(), retAt = function (si) { return (si === 2 && dv.ret2 === 1) || (si === 5 && dv.crash6 === 1); };
     var upto = tab === 'st' || tab === 'team' ? Math.max(av.stand, 0) : +tab;
@@ -1579,16 +1631,17 @@
     if (av.team) tabs.push({ id: 'team', label: 'Командный зачёт' });
     [0, 1, 2, 3, 4, 5].forEach(function (s) { tabs.push({ id: String(s), label: RALLY_DATA.stages[s], off: !av.stages[s] }); });   // все этапы видны; непройденные не открываются
     var on = tabs.filter(function (x) { return !x.off; });
-    if (!on.length) return;
-    if (!on.some(function (x) { return x.id === ttTab; })) ttTab = on[0].id;
+    if (on.length && !on.some(function (x) { return x.id === ttTab; })) ttTab = on[0].id;
     var box = $('ttTabs'); box.innerHTML = '';
     tabs.forEach(function (x) {
       var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'tt-tab'; bt.textContent = x.label;
-      bt.setAttribute('role', 'tab'); bt.setAttribute('aria-selected', x.id === ttTab ? 'true' : 'false');
+      bt.setAttribute('role', 'tab'); bt.setAttribute('aria-selected', x.id === ttTab && !x.off ? 'true' : 'false');
       if (x.off) { bt.disabled = true; bt.setAttribute('aria-disabled', 'true'); bt.title = 'Этап ещё впереди'; box.appendChild(bt); return; }
       bt.addEventListener('click', function (e) { e.stopPropagation(); ttTab = x.id; ttRender(); bt.focus({ preventScroll: true }); });
       box.appendChild(bt);
     });
+    if (!on.length) { ttEmpty(true); return null; }
+    ttEmpty(false);
     var d = ttData(ttTab, av), ti = $('ttTitle');
     $('tt').classList.toggle('st', d.stand);
     ti.textContent = '';
@@ -1608,7 +1661,7 @@
     return me;
   }
   function openTT() {
-    var av = ttAvail(); if (!av.any) return;
+    var av = ttAvail();
     if (!av.stages[+ttTab] && ttTab !== 'st' && ttTab !== 'team') ttTab = 'st';
     if (ttTab === 'st' && av.stand < 0) ttTab = '';
     ttOpen = true; $('tt').hidden = false;
@@ -1630,7 +1683,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
-    if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { if (ttAvail().any) { e.preventDefault(); openTT(); } return; }
+    if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { e.preventDefault(); openTT(); return; }
     if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
     if (rbOpen) { if (e.key === 'Escape') { e.preventDefault(); closeRb(); } return; }
     if (mode === 'choice' && !ended) {
