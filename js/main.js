@@ -285,14 +285,22 @@
     el.locPre.hidden = !h.pre; el.locPre.textContent = h.pre || '';
     el.locName.textContent = h.name;
     el.locKm.hidden = !h.tail; el.locKm.textContent = h.tail || '';
+    var full = ((h.pre ? h.pre + ' ' : '') + h.name + (h.tail ? ' · ' + h.tail : '')); document.getElementById('loc').title = full;   // полная подпись по наведению, если на узком экране она обрезана
   }
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
+  var NAME_SHORT = { 'Доверие штурмана': 'Штурман' };       // короткое название для узкого экрана (допустимо по правилам HUD)
+  function setIndName(node, name) {
+    node.textContent = '';
+    var f = document.createElement('span'); f.className = 'nm-full'; f.textContent = name; node.appendChild(f);
+    node.classList.toggle('has-short', !!NAME_SHORT[name]);
+    if (NAME_SHORT[name]) { var sh = document.createElement('span'); sh.className = 'nm-short'; sh.textContent = NAME_SHORT[name]; node.appendChild(sh); }
+  }
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
     var wasNone = s.word != null && S.noneWords.indexOf(s.word) >= 0;
     if (patch.name) s.name = patch.name;
     if (patch.word) s.word = patch.word;
-    t.name.textContent = s.name; t.word.textContent = s.word;
+    setIndName(t.name, s.name); t.word.textContent = s.word;
     t.word.classList.toggle('zero', S.zeroWords.indexOf(s.word) >= 0);
     t.word.classList.toggle('none', S.noneWords.indexOf(s.word) >= 0);
     t.box.setAttribute('aria-label', s.name + ' ' + s.word);

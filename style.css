@@ -71,25 +71,31 @@ body { position: fixed; inset: 0; }
 /* ---------- Шапка ---------- */
 .hud {
   position: absolute; top: 0; left: 0; right: 0; z-index: 7;
-  display: flex; align-items: center; justify-content: space-between;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;   /* три зоны: место | индикаторы | кнопки; индикаторы всегда по центру и не едут от длины подписи */
   gap: calc(24 * var(--u));
   padding: calc(38 * var(--u)) calc(48 * var(--u)) 0;
   padding-left: max(calc(48 * var(--u)), var(--safe-l));
   padding-right: max(calc(48 * var(--u)), var(--safe-r));
   font-family: var(--f-head); text-transform: uppercase; white-space: nowrap;
 }
-.loc { display: flex; align-items: center; gap: calc(10 * var(--u)); font-size: calc(18 * var(--u)); letter-spacing: .01em; }
+.loc {                                            /* две строки: название места, под ним уточнение (СУ, время, состояние); высота всегда на две строки — шапка не прыгает */
+  grid-column: 1; justify-self: start; max-width: 100%; min-width: 0; min-height: calc(46 * var(--u));
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: center; column-gap: calc(10 * var(--u));
+  font-size: calc(18 * var(--u)); letter-spacing: .01em; line-height: 1.2;
+}
 .loc-dot {
   width: calc(12 * var(--u)); height: calc(12 * var(--u)); border-radius: 50%;
   background: var(--dot); box-shadow: 0 0 calc(10 * var(--u)) rgba(255,59,0,.55);
   animation: blink 2.6s ease-in-out infinite; flex: none;
+  grid-row: 1 / span 2; align-self: center;
 }
-.loc-txt { min-width: 0; }
+.loc-txt { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loc-rally { font-weight: 300; }
 .loc-name  { font-weight: 800; }
-.loc-km    { font-family: var(--f-mono); font-weight: 500; font-size: .9em; margin-left: calc(4 * var(--u)); letter-spacing: 0; }
+.loc-km    { grid-column: 2; grid-row: 2; min-width: 0; margin-top: calc(3 * var(--u)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+             font-family: var(--f-mono); font-weight: 500; font-size: .74em; letter-spacing: 0; color: var(--ink-2); }
 
-.inds { display: flex; gap: calc(34 * var(--u)); flex: 1; justify-content: center; }
+.inds { grid-column: 2; display: flex; gap: calc(34 * var(--u)); justify-content: center; justify-self: center; }
 .ind  { font-size: calc(18 * var(--u)); position: relative; }
 /* индикатор появился (Нет → значение): подсвечивается вся плашка */
 .ind.reveal::before {
@@ -133,7 +139,7 @@ body { position: fixed; inset: 0; }
 }
 .ind-word::before { content: ' '; }          /* на десктопе — одна строка: «Машина ЕЩЁ ПОХОДИТ» */
 
-.hud-btns { display: flex; align-items: center; gap: calc(10 * var(--u)); flex: none; }
+.hud-btns { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: calc(10 * var(--u)); flex: none; }
 .sndbtn {
   display: inline-flex; align-items: center; justify-content: center;
   width: calc(46 * var(--u)); height: calc(46 * var(--u)); min-width: 36px; min-height: 36px; padding: 0;
@@ -487,9 +493,13 @@ body { position: fixed; inset: 0; }
   .scrim-top { height: 26cqh; }
   .hud {
     padding-top: 9px; padding-bottom: 0; gap: 10px; align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto auto;     /* на телефоне кнопкам и индикаторам нужно своё место: подпись места уступает и обрезается многоточием */
     padding-left: max(14px, var(--safe-l)); padding-right: max(12px, var(--safe-r));
   }
-  .loc { font-size: max(11px, 11 * var(--u)); gap: 6px; line-height: 1.2; }
+  .inds { grid-column: 2; }
+  .hud-btns { grid-column: 3; }
+  .loc { font-size: max(11px, 11 * var(--u)); column-gap: 6px; line-height: 1.2; min-height: 30px; }
+  .loc-km { margin-top: 1px; font-size: .82em; line-height: 1.15; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }   /* длинное уточнение уходит на вторую строку: высоту шапки всё равно задаёт кнопка 44 px */
   .loc-dot { width: 8px; height: 8px; }
   .inds { gap: 14px; justify-content: center; min-width: 0; }
   .ind.reveal::before { inset: -6px -8px; border-radius: 8px; }
@@ -564,13 +574,13 @@ body { position: fixed; inset: 0; }
   .tt.st .proto-tbl .c-gap { width: 70px; }
 }
 
-/* Узкий телефон (ширина поля < 1200; на 896×414 и 932×430 показатели наезжали на кнопки): в одной строке с местом уже не помещается — показатели уходят строкой ниже, но тоже в одну строку */
-@container stage (max-height: 480px) and (max-width: 1199px) {
-  .hud { flex-wrap: wrap; row-gap: 3px; }
-  .inds { order: 3; flex: 1 0 100%; justify-content: flex-start; gap: 18px; }
-  .ind { padding-top: 0; }
-  .scrim-top { height: 32cqh; }
-  .proto { padding-top: 84px; -webkit-mask-image: linear-gradient(transparent 0, #000 76px, #000 calc(100% - 52px), transparent calc(100% - 10px)); mask-image: linear-gradient(transparent 0, #000 76px, #000 calc(100% - 52px), transparent calc(100% - 10px)); }
+/* Узкий телефон (поле уже 800): «Доверие штурмана» сокращается до «Штурман», иначе показатели и кнопки не помещаются в одну строку шапки */
+.nm-short { display: none; }
+@container stage (max-height: 480px) and (max-width: 799px) {
+  .frame:not(.inds-big) .ind-name.has-short .nm-full { display: none; }
+  .frame:not(.inds-big) .ind-name.has-short .nm-short { display: inline; }
+  .inds { gap: 10px; }
+  .hud { gap: 8px; }
 }
 
 /* Очень низкое поле (телефон с баннером, ≤ 350) */
