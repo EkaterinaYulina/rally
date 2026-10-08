@@ -187,6 +187,13 @@ body { position: fixed; inset: 0; }
   will-change: opacity, transform; user-select: none;
 }
 .portrait.on { opacity: 1; transform: none; }
+/* Живой портрет: дыхание (scale) и лёгкое покачивание (rotate + сдвиг) — отдельные свойства, они не мешают появлению через transform.
+   Основание не двигается (transform-origin внизу); на репликах вслух (.say) дыхание чуть глубже и чаще. */
+.portrait { transform-origin: 50% 100%; animation: pbreath var(--pb, 4.8s) ease-in-out infinite, psway var(--ps, 9.5s) ease-in-out infinite; }
+.portrait.say { --pb: 3.6s; --pamp: 1.017; }
+@keyframes pbreath { 0%, 100% { scale: 1; } 50% { scale: var(--pamp, 1.011); } }
+@keyframes psway { 0%, 100% { rotate: -.28deg; translate: -.18% 0; } 50% { rotate: .28deg; translate: .18% 0; } }
+.frame.static .portrait, .frame.static .portrait.say { animation: none; }
 
 /* ---------- Текстовое окно ---------- */
 .dialog {
@@ -585,5 +592,6 @@ body { position: fixed; inset: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .portrait { animation: none; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
