@@ -363,6 +363,7 @@
         kids[q].classList.remove('gain', 'lost');
         if (animate && !STATIC && old != null && q >= Math.min(n, old) && q < Math.max(n, old)) { kids[q].classList.remove('blink', 'blink-down'); void kids[q].offsetWidth; kids[q].classList.add(n > old ? 'blink' : 'blink-down'); }
       }
+      t.seg.classList.toggle('full', n >= 9);
       t.seg.classList.toggle('zero', n === 0 && zero);
       t.seg.classList.toggle('none', n === 0 && isNone);
     }

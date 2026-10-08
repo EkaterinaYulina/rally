@@ -570,7 +570,7 @@ window.STORY = {
     { who: 'alex',  kind: 'narr', text: 'Звонок. Денис' },
     { who: 'phone', kind: 'say',  text: 'Как ты?' },
     { who: 'alex',  kind: 'say',  text: 'Живой. Как рука?' },
-    { who: 'phone', kind: 'say',  text: 'Гипс ещё три недели. Слушай… Я, наверное, в следующем сезоне с тобой не поеду', ind: { trust: { word: 'потеряно' } } },
+    { who: 'phone', kind: 'say',  text: 'Гипс ещё три недели. Слушай… Я, наверное, в следующем сезоне с тобой не поеду', ind: { trust: { word: 'потеряно', n: 0 } } },
     { who: 'alex',  kind: 'say',  text: 'Из-за аварии?' },
     { who: 'alex',  kind: 'narr', text: 'Пауза. Слишком длинная' },
     { who: 'phone', kind: 'say',  text: 'Знаешь, появились обстоятельства' },

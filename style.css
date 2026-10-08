@@ -143,6 +143,7 @@ body { position: fixed; inset: 0; }
 .ind-seg i { flex: none; width: calc(19 * var(--u)); height: calc(9 * var(--u)); min-width: 9px; min-height: 6px; border-radius: 1px; box-sizing: border-box;
              border: 1px solid rgba(236, 230, 214, .6); background: transparent; transition: background .35s, border-color .35s; }
 .ind-seg i.on { background: var(--amber); border-color: var(--amber); }
+.ind-seg.full i.on { background: #ffc247; border-color: #ffc247; box-shadow: 0 0 calc(6 * var(--u)) rgba(255, 194, 71, .45); }   /* 9–10 из 10: шкала чуть светлее и теплее */
 .ind-seg.zero i { border-color: #ff7a59; border-style: dashed; }                       /* «кончилась» / «потеряно»: пустая шкала, красный пунктир */
 .ind-seg.none i { border-color: rgba(236, 230, 214, .35); }                            /* нет машины */
 .ind-seg i.blink { animation: segblink 1.4s ease-out; }
