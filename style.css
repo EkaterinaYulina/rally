@@ -39,6 +39,7 @@ body { position: fixed; inset: 0; }
   position: absolute; inset: 0;
   /* u = 1px на макете 1600×900; масштабируется по меньшей стороне поля */
   --u: min(0.0625cqw, 0.11111cqh);
+  --btn: max(36px, calc(46 * var(--u)));       /* кнопки шапки всегда квадрат */
   /* портрет: высота 63% поля, привязан к низу справа */
   --ph: 63cqh;
   --pw: calc(var(--ph) * 0.8936);
@@ -90,6 +91,7 @@ body { position: fixed; inset: 0; }
   grid-row: 1 / span 2; align-self: center;
 }
 .loc-txt { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loc-rally { font-weight: 300; }
 .loc-name  { font-weight: 800; }
 .loc-km    { grid-column: 2; grid-row: 2; min-width: 0; margin-top: calc(3 * var(--u)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
              font-family: var(--f-mono); font-weight: 500; font-size: .74em; letter-spacing: 0; color: var(--ink-2); }
@@ -144,7 +146,7 @@ body { position: fixed; inset: 0; }
 .hud-btns { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: calc(10 * var(--u)); flex: none; }
 .sndbtn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: calc(46 * var(--u)); height: calc(46 * var(--u)); min-width: 36px; min-height: 36px; padding: 0;
+  width: var(--btn); height: var(--btn); padding: 0;
   color: var(--amber); background: rgba(16, 15, 12, .92);
   border: 1px solid rgba(255, 171, 0, .55); border-radius: calc(6 * var(--u));
   box-shadow: 0 0 calc(18 * var(--u)) rgba(255, 171, 0, .14);
@@ -443,7 +445,7 @@ body { position: fixed; inset: 0; }
 
 /* ---------- Турнирная таблица (кнопка в шапке + окно) ---------- */
 .ttbtn[hidden] { display: none; }
-.roadbook { width: calc(46 * var(--u)); min-width: 36px; padding: 0; justify-content: center; }   /* кнопки шапки — только значки (подпись в title и aria-label): с длинными «СУ-7 «Кузнечное» · 18,7 км» подписи в шапку не помещались */
+.roadbook { width: var(--btn); height: var(--btn); padding: 0; justify-content: center; }   /* кнопки шапки — только значки (подпись в title и aria-label): с длинными «СУ-7 «Кузнечное» · 18,7 км» подписи в шапку не помещались */
 .roadbook-txt { display: none; }
 .tt {
   position: absolute; inset: 0; z-index: 9; cursor: default; overflow-y: auto; overscroll-behavior: contain;
@@ -507,10 +509,11 @@ body { position: fixed; inset: 0; }
   .ind.reveal::before { inset: -6px -8px; border-radius: 8px; }
   /* показатель на телефоне: мелкая подпись над словом — «Доверие штурмана» остаётся целиком, шапка не раздувается */
   .ind { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.15; white-space: nowrap; padding-top: 0; }
-  .ind-name { font-family: var(--f-mono); font-size: max(8.5px, 9 * var(--u)); letter-spacing: .06em; font-weight: 500; color: var(--ink-2); }
+  .ind-name { font-family: var(--f-head); font-size: max(9px, 9.5 * var(--u)); letter-spacing: .02em; font-weight: 300; color: var(--ink); }
   .ind-word { font-size: max(12px, 13 * var(--u)); }
   .ind-word::before { content: none; }
   .hud-btns { gap: 8px; }
+  .frame { --btn: 44px; }
   .sndbtn { width: 44px; height: 44px; border-radius: 8px; }
   .sndbtn-ico { width: 22px; height: 22px; }
   .roadbook { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 8px; }

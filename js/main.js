@@ -295,18 +295,19 @@
     clkNode.firstChild.nodeValue = t[0]; clkNode.lastChild.nodeValue = t[1];
     document.getElementById('loc').title = locTitle;
   }
-  var locTitle = '';
+  var locTitle = '', lastHud = null, curScene = null;
   function setHud(h) {
-    el.locPre.hidden = true; el.locPre.textContent = '';
+    lastHud = h;
+    el.locPre.hidden = !h.pre; el.locPre.textContent = h.pre || '';       // «Ралли» остаётся перед названием
     el.locName.textContent = h.name;
     var sub = [];
-    if (h.pre && h.pre !== 'Ралли') sub.push(h.pre.toLowerCase());          // «Ралли-спринт» — это уточнение, а не название
     if (h.tail) sub.push(h.tail);
     el.locKm.textContent = ''; clkNode = null; clearInterval(clkTimer);
-    var hasClk = !!h.clk;
+    var clkStr = h.clk || (S.sceneClock && S.sceneClock[curScene]) || null;
+    var hasClk = !!clkStr;
     if (hasClk) {
-      var p = h.clk.split(':'), base = (+p[0]) * 60 + (+p[1]);
-      if (clkKey !== h.clk) { clkKey = h.clk; clkBase = base; clkT0 = Date.now(); }   // тот же час в соседних репликах не сбрасывает ход часов
+      var p = clkStr.split(':'), base = (+p[0]) * 60 + (+p[1]);
+      if (clkKey !== clkStr) { clkKey = clkStr; clkBase = base; clkT0 = Date.now(); }   // тот же час в соседних репликах не сбрасывает ход часов
       var c = document.createElement('span'); c.className = 'clk';
       var t = clkText(); clkLast = t.join(':');
       c.appendChild(document.createTextNode(t[0]));
@@ -317,7 +318,7 @@
       if (!STATIC) clkTimer = setInterval(clkTick, 1000);
     } else { clkKey = null; el.locKm.textContent = sub.join(' · '); }
     el.locKm.hidden = !(hasClk || sub.length);
-    locTitle = h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
+    locTitle = (h.pre ? h.pre + ' ' : '') + h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
     document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
@@ -1073,7 +1074,8 @@
   }
   function applyProps(b, animate) {
     if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
-    if (b.hud) setHud(b.hud);
+    if (b.scene) curScene = b.scene;
+    if (b.hud) setHud(b.hud); else if (b.scene && lastHud) setHud(lastHud);   // новая сцена без своей шапки: часы переходят на её время
     if (b.music !== undefined) setMusic(b.music, !animate, b.musicFade);
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
