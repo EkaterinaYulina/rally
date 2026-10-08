@@ -351,7 +351,8 @@
     if (patch.word) s.word = patch.word;
     if (patch.model) s.model = patch.model;
     var isNone = S.noneWords.indexOf(s.word) >= 0, zero = S.zeroWords.indexOf(s.word) >= 0;
-    t.name.textContent = k === 'car' ? (isNone ? S.bands.car.name : (s.model || S.carModel)) : s.name;    // подпись под делениями: у машины — модель («Fiesta R2T»), слово «Машина» только когда машины нет; у штурмана — «Доверие штурмана»
+    t.name.textContent = k === 'car' ? (s.model || S.carModel) : s.name;    // подпись под делениями: у машины — модель («Fiesta R2T»), слово «Машина» только когда машины нет; у штурмана — «Доверие штурмана»
+    t.box.classList.toggle('gone', isNone);              // нет машины / нет штурмана — индикатор пропадает
     t.word.textContent = s.word;                       // слово состояния в интерфейсе не показывается — только для скринридера
     var n = patch.n != null ? patch.n : (patch.word ? segN(k, patch.word) : (s.n == null ? 0 : s.n));
     var old = s.n; s.n = n;

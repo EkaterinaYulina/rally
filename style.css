@@ -117,7 +117,8 @@ body { position: fixed; inset: 0; }
 @media (prefers-reduced-motion: reduce) { .ind.reveal::before { animation-duration: 3.2s; } }
 .ind-name { font-weight: 300; }
 .inds .ind { display: flex; flex-direction: column; align-items: flex-start; gap: calc(4 * var(--u)); line-height: 1.15; white-space: nowrap; }
-.inds .ind-name { font-size: .62em; letter-spacing: .02em; color: var(--ink); }
+.inds .ind-name { font-family: var(--f-mono); font-weight: 500; font-size: calc(12.6 * var(--u)); letter-spacing: -.01em; color: var(--ink-2); }   /* тот же шрифт и размер, что у строки со временем */
+.ind.gone { display: none; }                                          /* нет машины / нет штурмана — индикатора в интерфейсе нет */
 /* два яруса на любом разрешении: мелкая подпись над значением (на узком — те же правила ниже) */
 .ind-word { font-weight: 800; color: var(--amber); transition: color .4s; }
 .ind-word.zero { color: #ff7a59; }
@@ -534,7 +535,7 @@ body { position: fixed; inset: 0; }
   .ind.reveal::before { inset: -6px -8px; border-radius: 8px; }
   /* показатель на телефоне: мелкая подпись над словом — «Доверие штурмана» остаётся целиком, шапка не раздувается */
   .ind { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.15; white-space: nowrap; padding-top: 0; }
-  .ind-name { font-family: var(--f-head); font-size: max(9px, 9.5 * var(--u)); letter-spacing: .02em; font-weight: 300; color: var(--ink); }
+  .inds .ind-name { font-family: var(--f-mono); font-size: max(9px, 9 * var(--u)); letter-spacing: -.01em; font-weight: 500; color: var(--ink-2); }
   .ind-word { font-size: max(12px, 13 * var(--u)); }
   .ind-word::before { content: none; }
   .ind-seg { gap: 2px; }
@@ -561,7 +562,7 @@ body { position: fixed; inset: 0; }
   .frame.inds-big .inds { top: 56px; gap: 14px; padding: 0 14px; }
   .frame.inds-big .ind { gap: 5px; padding: 8px 12px; border-radius: 8px; }
   .frame.inds-big .ind-seg i { width: 13px; height: 9px; }
-  .frame.inds-big .ind-name { font-size: 13px; }
+  .frame.inds-big .inds .ind-name { font-size: 11px; }
   .frame.inds-big .ind-word { font-size: 15px; }
   .frame.inds-big .ind-word::before { content: none; }
   .dlg-name { font-size: max(15px, 17 * var(--u)); margin-bottom: 5px; }
