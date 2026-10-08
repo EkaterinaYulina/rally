@@ -17,7 +17,7 @@
     bgA: $('bgA'), bgB: $('bgB'), bgLabel: $('bgLabel'),
     locPre: $('locPre'), locName: $('locName'), locKm: $('locKm'),
     portraits: {},
-    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas') },
+    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas'), seg: $('indCarSeg') },
            trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas') } },
     proto: $('proto'), protoTitle: $('protoTitle'), protoSub: $('protoSub'), protoBody: $('protoBody'), protoSheet: document.querySelector('.proto-sheet'), protoGap: $('protoGap'), scrHint: $('scrHint')
   };
@@ -340,13 +340,32 @@
     document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
-  function setIndName(node, name) { node.textContent = name; }       // название показателя всегда целиком: «Доверие штурмана»
+  function setIndName(node, name, withModel) {       // название показателя всегда целиком: «Доверие штурмана»; у машины — с моделью: «Машина · Fiesta R2T»
+    node.textContent = name;
+    if (withModel && S.carModel) { var m = document.createElement('span'); m.className = 'ind-model'; m.textContent = ' · ' + S.carModel; node.appendChild(m); }
+  }
+  function segCount(w) {                              // сколько делений горит у машины: как новая 4 · в норме 3 · ещё походит 2 · никакая 1 · кончилась / нет — 0
+    var ws = S.bands.car.words;
+    for (var q = 0; q < ws.length; q++) if (ws[q][2] === w) return ws.length - q;
+    return 0;
+  }
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
     var wasNone = s.word != null && S.noneWords.indexOf(s.word) >= 0;
     if (patch.name) s.name = patch.name;
     if (patch.word) s.word = patch.word;
-    setIndName(t.name, s.name); t.word.textContent = s.word;
+    var isNone = S.noneWords.indexOf(s.word) >= 0;
+    setIndName(t.name, s.name, k === 'car' && !isNone);                // нет машины — «Машина» без модели
+    t.word.textContent = s.word;
+    if (t.seg) {
+      var n = segCount(s.word), old = t.seg.getAttribute('data-n'), kids = t.seg.children;
+      for (var q = 0; q < kids.length; q++) {
+        kids[q].classList.toggle('on', q < n);
+        if (animate && !STATIC && old != null && q >= Math.min(n, +old) && q < Math.max(n, +old)) { kids[q].classList.remove('blink'); void kids[q].offsetWidth; kids[q].classList.add('blink'); }
+      }
+      t.seg.setAttribute('data-n', n);
+      t.seg.classList.toggle('zero', n === 0 && !isNone);
+    }
     t.word.classList.toggle('zero', S.zeroWords.indexOf(s.word) >= 0);
     t.word.classList.toggle('none', S.noneWords.indexOf(s.word) >= 0);
     t.box.setAttribute('aria-label', s.name + ' ' + s.word);

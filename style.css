@@ -116,6 +116,10 @@ body { position: fixed; inset: 0; }
 @keyframes indnamelit { 0%, 55% { color: var(--amber); font-weight: 500; } 100% { color: inherit; } }
 @media (prefers-reduced-motion: reduce) { .ind.reveal::before { animation-duration: 3.2s; } }
 .ind-name { font-weight: 300; }
+/* два яруса на любом разрешении: мелкая подпись над значением (на узком — те же правила ниже) */
+.inds .ind { display: flex; flex-direction: column; align-items: flex-start; gap: calc(3 * var(--u)); line-height: 1.15; white-space: nowrap; }
+.inds .ind-name { font-size: .62em; letter-spacing: .02em; color: var(--ink); }
+.inds .ind-word::before { content: none; }
 .ind-word { font-weight: 800; color: var(--amber); transition: color .4s; }
 .ind-word.zero { color: #ff7a59; }
 .ind-word.none { color: var(--ink-2); font-weight: 500; opacity: .85; }
@@ -134,6 +138,21 @@ body { position: fixed; inset: 0; }
   box-shadow: 0 0 calc(24 * var(--u)) rgba(255, 171, 0, .16);
 }
 
+.ind-val { display: inline-flex; align-items: center; gap: calc(8 * var(--u)); vertical-align: baseline; }
+.ind-model { font-weight: 300; opacity: .8; }
+/* деления машины: горят = состояние; пустые — контур, так что читается не только цветом */
+.ind-seg { display: inline-flex; gap: calc(3 * var(--u)); align-items: flex-end; }
+.ind-seg i { width: calc(8 * var(--u)); height: calc(15 * var(--u)); min-width: 6px; min-height: 10px; border-radius: 2px; box-sizing: border-box;
+             border: 1px solid rgba(236, 230, 214, .45); background: transparent; transition: background .35s, border-color .35s; }
+.ind-seg i:nth-child(1) { height: calc(9 * var(--u)); min-height: 6px; }
+.ind-seg i:nth-child(2) { height: calc(12 * var(--u)); min-height: 8px; }
+.ind-seg i:nth-child(3) { height: calc(15 * var(--u)); min-height: 10px; }
+.ind-seg i:nth-child(4) { height: calc(18 * var(--u)); min-height: 12px; }
+.ind-seg i.on { background: var(--amber); border-color: var(--amber); }
+.ind-seg.zero i { border-color: #ff7a59; border-style: dashed; }
+.ind-seg i.blink { animation: segblink 1.4s ease-out; }
+@keyframes segblink { 0%, 30% { background: #fff3d1; box-shadow: 0 0 calc(10 * var(--u)) var(--amber); } 100% { box-shadow: 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .ind-seg i.blink { animation: none; } }
 .ind-word.flash { animation: indflash 1.6s ease-out; }
 @keyframes indflash {
   0% { opacity: 0; transform: translateY(-5px); text-shadow: 0 0 0 currentColor; }
@@ -518,6 +537,8 @@ body { position: fixed; inset: 0; }
   .ind-name { font-family: var(--f-head); font-size: max(9px, 9.5 * var(--u)); letter-spacing: .02em; font-weight: 300; color: var(--ink); }
   .ind-word { font-size: max(12px, 13 * var(--u)); }
   .ind-word::before { content: none; }
+  .ind-val { gap: 6px; }
+  .ind-seg i { width: 6px; min-width: 6px; }
   .hud-btns { gap: 8px; }
   .frame { --btn: 44px; }
   .sndbtn { width: 44px; height: 44px; border-radius: 8px; }
