@@ -330,7 +330,8 @@ window.STORY = {
   tracks: {
     line_lock:     { src: 'assets/audio/line_lock.mp3',     vol: 0.55, fadeIn: 2500 },      // пролог целиком, 1.1–1.5; петля 24,4 с
     second_chance: { src: 'assets/audio/second_chance.mp3', vol: 0.55, fadeIn: 2500 },     // глава 2 целиком, 2.1–2.5 (кроссфейд с прологом на карточке главы); петля 30 с, 96 bpm
-    sparring_match: { src: 'assets/audio/sparring_match.mp3', vol: 0.55, fadeIn: 2500 }      // глава 3 целиком, 3.1–3.9; петля 30 с, 128 bpm
+    sparring_match: { src: 'assets/audio/sparring_match.mp3', vol: 0.55, fadeIn: 2500 },    // глава 3 целиком, 3.1–3.9; петля 30 с, 128 bpm
+    holding_the_nerve: { src: 'assets/audio/holding_the_nerve.mp3', vol: 0.55, fadeIn: 2500 }  // глава 4 до итогов этапа, 4.1–4.6 (гаснет на 4.7); петля 30 с, 112 bpm
   },
 
   /* Одежда Алекса и Вики: красный спортивный комплект — в соревновательных и гоночных сценах (сервис-парк, техинспекция, старты,
@@ -741,7 +742,7 @@ window.STORY = {
        ГЛАВА 4. КОМАНДА — этап 3 «Печоры» (31 июля – 1 августа)
        Текст — из claude/rally_put_novella.md (сцены 4.1–4.8 и разбор), правки — в отчёте sborka_gl4
        ===================================================================== */
-    { kind: 'chapter', n: 4, kicker: 'Глава 4', title: 'Команда', music: 'stop' },
+    { kind: 'chapter', n: 4, kicker: 'Глава 4', title: 'Команда', music: 'holding_the_nerve' },
 
     /* ---------- 4.1 Квартира в «Печорах». Накануне ознакомления ---------- */
     { scene: '4.1', bg: 'bg41', big: false, chapStart: true,
@@ -852,7 +853,7 @@ window.STORY = {
     { when: { ret2: { eq: 0 } }, who: 'alex', kind: 'narr', text: 'Мотор глохнет прямо под аркой финиша. Машина докатывается до КВ накатом. Судья ставит время в карту' },
 
     /* ---------- 4.7 Итоги «Печор» ---------- */
-    { scene: '4.7', bg: 'bg47b', hud: { pre: 'Ралли', name: 'Печоры', tail: 'итоги этапа' },
+    { scene: '4.7', bg: 'bg47b', music: 'stop', hud: { pre: 'Ралли', name: 'Печоры', tail: 'итоги этапа' },
       who: 'alex', kind: 'narr', text: 'Протокол выходит через час' },
     { when: { ret2: { eq: 0 } }, who: 'alex', kind: 'narr', text: 'Мы стоим у доски. Я ищу нас где-то в середине' },
     /* победа: подиум */
@@ -909,7 +910,7 @@ window.STORY = {
        ГЛАВА 5. РЕШАЮЩИЕ ЭТАПЫ — «Горный край» (без нас) и «Урал» (16–17 октября)
        Текст — из claude/rally_put_novella.md (сцены 5.1–5.7 и разбор), правки — в отчёте sborka_gl5
        ===================================================================== */
-    { kind: 'chapter', n: 5, kicker: 'Глава 5', title: 'Решающие этапы' },
+    { kind: 'chapter', n: 5, kicker: 'Глава 5', title: 'Решающие этапы', music: 'stop' },
 
     /* ---------- 5.1 Бокс «Ладоги». Вскрытие ---------- */
     { scene: '5.1', bg: 'bg51', big: false, chapStart: true,
