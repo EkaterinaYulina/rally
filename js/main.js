@@ -296,12 +296,26 @@
     document.getElementById('loc').title = locTitle;
   }
   var locTitle = '', lastHud = null, curScene = null;
+  /* «N дней до ралли …»: для сцен без своей мелкой подписи */
+  function daysTail(scene) {
+    var d0 = S.sceneDate && S.sceneDate[scene]; if (!d0 || !S.events) return '';
+    var t0 = Date.parse(d0 + 'T12:00:00Z');
+    for (var i = 0; i < S.events.length; i++) {
+      var n = Math.round((Date.parse(S.events[i].date + 'T12:00:00Z') - t0) / 86400000);
+      if (n < 0) continue;
+      if (n === 0) return 'Ралли сегодня';
+      var m10 = n % 10, m100 = n % 100, w = (m10 === 1 && m100 !== 11) ? 'день' : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'дня' : 'дней';
+      return n + ' ' + w + ' до ' + S.events[i].to;
+    }
+    return '';
+  }
   function setHud(h) {
-    lastHud = h;
+    lastHud = h; if (h.scene) curScene = h.scene;      // h.scene — если сцена начинается условной репликой и до шапки «scene» не дошёл
     el.locPre.hidden = !h.pre; el.locPre.textContent = h.pre || '';       // «Ралли» остаётся перед названием
     el.locName.textContent = h.name;
     var sub = [];
-    if (h.tail) sub.push(h.tail);
+    var tailTxt = h.tail || daysTail(curScene);
+    if (tailTxt) sub.push(tailTxt);
     el.locKm.textContent = ''; clkNode = null; clearInterval(clkTimer);
     var clkStr = h.clk || (S.sceneClock && S.sceneClock[curScene]) || null;
     var hasClk = !!clkStr;
