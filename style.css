@@ -461,6 +461,10 @@ body { position: fixed; inset: 0; }
 .tt-tab:focus-visible, .rb-close:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .tt-body { display: flex; justify-content: center; flex: none; }
 .tt-sheet { margin-bottom: calc(10 * var(--u)); }
+.tt-empty { margin: auto; max-width: calc(560 * var(--u)); min-width: 240px; text-align: center; display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
+.tt-empty[hidden], .tt-body[hidden] { display: none; }
+.tt-empty-t { font: 800 calc(24 * var(--u))/1.15 var(--f-head); text-transform: uppercase; color: var(--ink); }
+.tt-empty-p { margin: 0; font: 400 calc(19 * var(--u))/1.45 var(--f-body); color: rgba(236, 230, 214, .72); }
 .tt .proto-tbl.st .c-gap, .tt.st .proto-tbl .c-gap { width: calc(150 * var(--u)); }
 
 /* ---------- Заглушка «Поверните телефон» ---------- */

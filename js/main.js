@@ -1558,7 +1558,8 @@
     }
     return { stages: st, stand: stand, team: team, any: stand >= 0 || Object.keys(st).length > 0 };
   }
-  function ttBtnSync() { var a = ttAvail(); $('ttbtn').hidden = !a.any; return a; }
+  function ttBtnSync() { return ttAvail(); }          // кнопка в шапке видна всегда; пока протоколов нет, окно показывает пустое состояние
+  function ttEmpty(on) { $('ttEmpty').hidden = !on; $('ttBodyWrap').hidden = on; }   // вкладки остаются: все этапы видны, непройденные неактивны
   function ttData(tab, av) {                        // → {title:[pre,name], sub, gap, rows, alex, stand}
     var dv = derived(), t = dv.t.slice(), retAt = function (si) { return (si === 2 && dv.ret2 === 1) || (si === 5 && dv.crash6 === 1); };
     var upto = tab === 'st' || tab === 'team' ? Math.max(av.stand, 0) : +tab;
@@ -1579,16 +1580,17 @@
     if (av.team) tabs.push({ id: 'team', label: 'Командный зачёт' });
     [0, 1, 2, 3, 4, 5].forEach(function (s) { tabs.push({ id: String(s), label: RALLY_DATA.stages[s], off: !av.stages[s] }); });   // все этапы видны; непройденные не открываются
     var on = tabs.filter(function (x) { return !x.off; });
-    if (!on.length) return;
-    if (!on.some(function (x) { return x.id === ttTab; })) ttTab = on[0].id;
+    if (on.length && !on.some(function (x) { return x.id === ttTab; })) ttTab = on[0].id;
     var box = $('ttTabs'); box.innerHTML = '';
     tabs.forEach(function (x) {
       var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'tt-tab'; bt.textContent = x.label;
-      bt.setAttribute('role', 'tab'); bt.setAttribute('aria-selected', x.id === ttTab ? 'true' : 'false');
+      bt.setAttribute('role', 'tab'); bt.setAttribute('aria-selected', x.id === ttTab && !x.off ? 'true' : 'false');
       if (x.off) { bt.disabled = true; bt.setAttribute('aria-disabled', 'true'); bt.title = 'Этап ещё впереди'; box.appendChild(bt); return; }
       bt.addEventListener('click', function (e) { e.stopPropagation(); ttTab = x.id; ttRender(); bt.focus({ preventScroll: true }); });
       box.appendChild(bt);
     });
+    if (!on.length) { ttEmpty(true); return null; }
+    ttEmpty(false);
     var d = ttData(ttTab, av), ti = $('ttTitle');
     $('tt').classList.toggle('st', d.stand);
     ti.textContent = '';
@@ -1608,7 +1610,7 @@
     return me;
   }
   function openTT() {
-    var av = ttAvail(); if (!av.any) return;
+    var av = ttAvail();
     if (!av.stages[+ttTab] && ttTab !== 'st' && ttTab !== 'team') ttTab = 'st';
     if (ttTab === 'st' && av.stand < 0) ttTab = '';
     ttOpen = true; $('tt').hidden = false;
@@ -1630,7 +1632,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
-    if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { if (ttAvail().any) { e.preventDefault(); openTT(); } return; }
+    if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { e.preventDefault(); openTT(); return; }
     if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
     if (rbOpen) { if (e.key === 'Escape') { e.preventDefault(); closeRb(); } return; }
     if (mode === 'choice' && !ended) {
