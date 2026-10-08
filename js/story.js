@@ -49,7 +49,7 @@ var EG = { crash6: { eq: 0 }, rank5: { gte: 3 } };
 var EV = { crash6: { eq: 1 } };
 function W(base, extra) { return Object.assign({}, base, extra || {}); }
 var CH6 = [
-    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Эпилог: Финал' },
+    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Эпилог: Финал', music: 'stop' },
 
     /* ---------- 6.1 Админпроверка ---------- */
     { scene: '6.1', bg: 'bg61', big: false, chapStart: true,
@@ -335,7 +335,11 @@ window.STORY = {
     hardest_win:         { src: 'assets/audio/hardest_win.mp3',         vol: 0.50, fadeIn: 1200 },   // 4.7: победа, 1 место; петля 30 с, 128 bpm
     modest_finish:       { src: 'assets/audio/modest_finish.mp3',       vol: 0.55, fadeIn: 1800 },   // 4.7: финиш не на первом месте; петля 25 с, 96 bpm
     cold_engine_stop:    { src: 'assets/audio/cold_engine_stop.mp3',    vol: 0.55, fadeIn: 1500 },   // 4.5Б и итоги 4.7 при сходе; петля 24 с, 80 bpm
-    onboard_diagnostics: { src: 'assets/audio/onboard_diagnostics.mp3', vol: 0.55, fadeIn: 2500 }    // 4.8–4.9: осмотр и разбор онборда (гаснет на карточке главы 5); петля 25,4 с, 104 bpm
+    onboard_diagnostics: { src: 'assets/audio/onboard_diagnostics.mp3', vol: 0.55, fadeIn: 2500 },   // 4.8–4.9: осмотр и разбор онборда (на карточке главы 5 кроссфейд в следующий трек); петля 25,4 с, 104 bpm
+    engine_rebuild_delay:    { src: 'assets/audio/engine_rebuild_delay.mp3',    vol: 0.55, fadeIn: 2500 },   // 5.1–5.3: вскрытие, ремонтная сага, «Горный край»; петля 30 с, 88 bpm
+    the_unresolved_question: { src: 'assets/audio/the_unresolved_question.mp3', vol: 0.65, fadeIn: 2500 },   // 5.4–5.5: инвестор, звонок Вики; петля 26,7 с, 72 bpm
+    through_the_drift:       { src: 'assets/audio/through_the_drift.mp3',       vol: 0.48, fadeIn: 2200 },   // 5.6–5.7: машина готова, «Урал»; петля 24 с, 120 bpm
+    the_night_before:        { src: 'assets/audio/the_night_before.mp3',        vol: 0.64, fadeIn: 2500 }    // 5.8: разбор онборда перед финалом (гаснет на карточке главы 6); петля 30 с, 96 bpm
   },
 
   /* Одежда Алекса и Вики: красный спортивный комплект — в соревновательных и гоночных сценах (сервис-парк, техинспекция, старты,
@@ -914,7 +918,7 @@ window.STORY = {
        ГЛАВА 5. РЕШАЮЩИЕ ЭТАПЫ — «Горный край» (без нас) и «Урал» (16–17 октября)
        Текст — из claude/rally_put_novella.md (сцены 5.1–5.7 и разбор), правки — в отчёте sborka_gl5
        ===================================================================== */
-    { kind: 'chapter', n: 5, kicker: 'Глава 5', title: 'Решающие этапы', music: 'stop' },
+    { kind: 'chapter', n: 5, kicker: 'Глава 5', title: 'Решающие этапы', music: 'engine_rebuild_delay' },
 
     /* ---------- 5.1 Бокс «Ладоги». Вскрытие ---------- */
     { scene: '5.1', bg: 'bg51', big: false, chapStart: true,
@@ -973,7 +977,7 @@ window.STORY = {
     { when: { ret2: { eq: 1 } }, who: 'vika', kind: 'say', tag: 'тише', text: 'Я посчитала оба варианта финала. Чемпионат — уже нет. Дальше по очкам, до Кравца слишком много. Но это ещё не всё, за чем мы сюда ехали' },
 
     /* ---------- 5.4 Шестаков ---------- */
-    { scene: '5.4', bg: 'bg54', hud: { pre: '', name: 'Бокс «Ладога Ралли»', tail: 'мотор снова на машине' },
+    { scene: '5.4', bg: 'bg54', music: 'the_unresolved_question', hud: { pre: '', name: 'Бокс «Ладога Ралли»', tail: 'мотор снова на машине' },
       when: { ret2: { eq: 0 } }, who: 'shestakov', kind: 'say', text: 'Я видел «Печоры». Признаюсь — впечатлило. Я видел «Горный край». Точнее, я не видел вас в «Горном крае»' },
     { when: { ret2: { eq: 1 } }, bg: 'bg54', hud: { pre: '', name: 'Бокс «Ладога Ралли»', tail: 'мотор снова на машине' }, who: 'shestakov', kind: 'say', text: 'Я видел «Печоры». Точнее, видел, чем они закончились. Я видел «Горный край». Точнее, я не видел вас в «Горном крае»' },
     { who: 'gorin', kind: 'say',  text: 'Мотор' },
@@ -1011,7 +1015,7 @@ window.STORY = {
     { who: 'alex', kind: 'narr', text: 'Она кладёт трубку, не попрощавшись. Странное ощущение' },
 
     /* ---------- 5.6 Машина готова ---------- */
-    { scene: '5.6', bg: 'bg56', hud: { pre: '', name: 'Бокс «Ладога Ралли»', tail: 'ночь' },
+    { scene: '5.6', bg: 'bg56', music: 'through_the_drift', hud: { pre: '', name: 'Бокс «Ладога Ралли»', tail: 'ночь' },
       who: 'alex', kind: 'narr', text: 'Толя заводит машину. Слушаем минуту. Две' },
     /* капиталка: 🔧 возвращается на уровень до «Печор» (минус износ), сверху эффекты 5.2 и 5.4 */
     { repair: true, who: 'tolya', kind: 'say', text: 'Не стучит' },
@@ -1045,7 +1049,7 @@ window.STORY = {
     { kind: 'cut', fx: 'fade', hold: 1100 },
 
     /* ---------- 5.8 Разбор онборда — перед финалом ---------- */
-    { scene: '5.8', bg: 'bg58', hud: { pre: '', name: 'Бокс «Ладога Ралли»', tail: 'до финала' },
+    { scene: '5.8', bg: 'bg58', music: 'the_night_before', hud: { pre: '', name: 'Бокс «Ладога Ралли»', tail: 'до финала' },
       who: 'vika', kind: 'say', text: 'Последний разбор до финала. Дальше разбирать будем уже итог' },
     { when: { срочная_доставка: true }, who: 'vika', kind: 'say', text: 'Ремень ГРМ с натяжителем мы вытащили срочной доставкой, вдвоём. Машина к финалу собрана лучше, чем могла быть' },
     { when: { k52: 'B', blk52: { eq: 0 } }, who: 'vika', kind: 'say', text: 'Комплект ГРМ ждали обычной доставкой. «Горный край» мы всё равно не успевали, но машина к финалу собрана по минимуму' },
