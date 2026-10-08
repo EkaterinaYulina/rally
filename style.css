@@ -88,7 +88,7 @@ body { position: fixed; inset: 0; }
   width: calc(12 * var(--u)); height: calc(12 * var(--u)); border-radius: 50%;
   background: var(--dot); box-shadow: 0 0 calc(10 * var(--u)) rgba(255,59,0,.55);
   animation: blink 2.6s ease-in-out infinite; flex: none;
-  grid-row: 1 / span 2; align-self: center;
+  grid-row: 1; align-self: center;                   /* точка на уровне первой (крупной) строки, а не посередине двух */
 }
 .loc-txt { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loc-rally { font-weight: 300; }
