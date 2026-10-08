@@ -22,6 +22,8 @@
     proto: $('proto'), protoTitle: $('protoTitle'), protoSub: $('protoSub'), protoBody: $('protoBody'), protoSheet: document.querySelector('.proto-sheet'), protoGap: $('protoGap'), scrHint: $('scrHint')
   };
 
+  if (STATIC && el.frame) el.frame.classList.add('static');
+
   /* портреты — из списка говорящих */
   (function () {
     var host = $('portraits');
@@ -1195,7 +1197,7 @@
       el.name.textContent = nm; el.name.classList.add('swap'); lastName = nm;
     }
     el.dialog.classList.toggle('thought', b.kind === 'thought');
-    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.toggle('on', portraitKey(sp) === k); });
+    Object.keys(el.portraits).forEach(function (k) { var on = portraitKey(sp) === k; el.portraits[k].classList.toggle('on', on); el.portraits[k].classList.toggle('say', on && b.kind === 'say'); });
     if (!(b.stat && !opts.instant)) el.sr.textContent = nm + '. ' + b.text;
     typeIn(b, el.shown, el.rest, el.hint, opts);
   }
