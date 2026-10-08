@@ -49,7 +49,7 @@ var EG = { crash6: { eq: 0 }, rank5: { gte: 3 } };
 var EV = { crash6: { eq: 1 } };
 function W(base, extra) { return Object.assign({}, base, extra || {}); }
 var CH6 = [
-    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Эпилог: Финал', music: 'stop' },
+    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Эпилог: Финал', music: 'cold_focus' },
 
     /* ---------- 6.1 Админпроверка ---------- */
     { scene: '6.1', bg: 'bg61', big: false, chapStart: true,
@@ -76,7 +76,7 @@ var CH6 = [
     { kind: 'cut', fx: 'fade', hold: 900 },
 
     /* ---------- 6.3 Разговор. Номер гостиницы ---------- */
-    { scene: '6.3', bg: 'bg63', hud: { pre: '', name: 'Гостиница', tail: 'вечер' },
+    { scene: '6.3', bg: 'bg63', music: 'quiet_weight', hud: { pre: '', name: 'Гостиница', tail: 'вечер' },
       who: 'vika', kind: 'say', text: 'На админпроверке ко мне подошёл Денис' },
     { who: 'alex', kind: 'say',  text: 'И что?' },
     { who: 'vika', kind: 'say',  text: 'Он рассказал мне про тормоза. Попросил передать. Сказал, что сам тебе не может — стыдно' },
@@ -123,7 +123,7 @@ var CH6 = [
 
     /* ---------- 6.4 Сервис перед ночной секцией ----------
        снимок 🤝/🔧 для финала (s5) берётся здесь: после эффекта выбора 6.3, до износа — 🔧 уже уменьшена на «Урале», до 6.6 числа не меняются */
-    { scene: '6.4', bg: 'bg64', snap: 's5', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'сервис-парк · перед ночной секцией' },
+    { scene: '6.4', bg: 'bg64', music: 'coiled_tension', snap: 's5', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'сервис-парк · перед ночной секцией' },
       who: 'alex', kind: 'narr', text: 'Сервис-парк в темноте. Пар изо рта, лёд на лужах' },
     { when: { place5: { eq: 1 } }, who: 'alex', kind: 'narr', text: 'После дневных «Каменного Брода» и «Тихого Мыса» мы — первые на этапе. Кравец плотно позади, но не рядом — секунды, не корпус машины' },
     { when: { place5: { eq: 2 } }, who: 'alex', kind: 'narr', text: 'После дневных «Каменного Брода» и «Тихого Мыса» мы — вторые на этапе. Кравец впереди, но не уехал — секунды, не корпус машины' },
@@ -145,7 +145,7 @@ var CH6 = [
     { who: 'vika', kind: 'say',  text: 'Пятнадцать. Десять. Пять. Четыре. Три. Два. Один. Старт!' },
 
     /* ---------- 6.6 На спецучастке ---------- */
-    { scene: '6.6', bg: 'bg66', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'СУ-7 «Кузнечное» · 18,7 км' },
+    { scene: '6.6', bg: 'bg66', music: 'asphalt_torrent', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'СУ-7 «Кузнечное» · 18,7 км' },
       who: 'vika', kind: 'say', text: 'Сто правый четыре. Пятьдесят левый три, не резать. Двести горка прямо, сто горка на правый один' },
     { who: 'alex', kind: 'narr', text: 'Её голос. Не диктор. Живой, быстрый, чуть выше, чем у Дениса. Я уже давно не замечаю разницы' },
     { who: 'vika', kind: 'say',  text: 'Семьдесят левый один. Сто правый один на левый один. Пятьдесят правый ноль. Двести…' },
@@ -172,14 +172,14 @@ var CH6 = [
     { when: { k66: 'B', gate6: { eq: 0 } }, who: 'alex', kind: 'say',  text: 'Ну давай, холера!' },
     { when: { k66: 'B', gate6: { eq: 0 } }, who: 'vika', kind: 'say',  text: 'Алекс!' },
     { when: { k66: 'B', gate6: { eq: 0 } }, who: 'alex', kind: 'say',  text: 'Чтоб тебя…' },
-    { when: { k66: 'B', gate6: { eq: 0 } }, kind: 'cut', fx: 'crash', hold: 1900 },
+    { when: { k66: 'B', gate6: { eq: 0 } }, kind: 'cut', fx: 'crash', hold: 1900, music: 'line_lock', musicFade: 400 },
     { when: { crash6: { eq: 0 } }, kind: 'cut', fx: 'fade', hold: 1100 },
 
     /* ---------- 6.7 Протокол. Финалы ----------
        итог — по итоговой таблице сезона. Порядок проверки В → А → Б → Г */
 
     /* ===== Финал А — «Имя»: чемпион по сумме сезона ===== */
-    { scene: '6.7А', when: EA, bg: 'bg67a', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'итоги · концовка А' },
+    { scene: '6.7А', when: EA, bg: 'bg67a', music: 'hard_earned_ground', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'итоги · концовка А' },
       who: 'alex', kind: 'narr', text: 'Протокол вывешивают через пятнадцать минут. Вика вцепилась мне в рукав' },
     { when: EA, kind: 'protocol', stage: 5 },
     { when: EA, kind: 'standings', stage: 5 },
@@ -211,7 +211,7 @@ var CH6 = [
     { when: EA, who: 'alex', kind: 'narr', text: 'Вика уже, наверное, качает онборд «Кузнечного» на телефоне. Разбирать будем и это. Особенно потому что выиграли' },
 
     /* ===== Финал Б — «Серебро»: второе место в чемпионате ===== */
-    { scene: '6.7Б', when: EB, bg: 'bg67b', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'итоги · концовка Б' },
+    { scene: '6.7Б', when: EB, bg: 'bg67b', music: 'the_road_ahead', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'итоги · концовка Б' },
       who: 'alex', kind: 'narr', text: 'Протокол вывешивают через пятнадцать минут. Мы стоим у доски' },
     { when: EB, kind: 'protocol', stage: 5 },
     { when: EB, kind: 'standings', stage: 5 },
@@ -233,7 +233,7 @@ var CH6 = [
     { when: EB, who: 'alex', kind: 'thought', text: 'Мы проиграли чемпионат. Но никто больше не говорит, что я не умею водить. А это то, за чем я сюда пришёл' },
 
     /* ===== Финал Г — «Финиш без подиума»: третье место и ниже, без аварии ===== */
-    { scene: '6.7Г', when: EG, bg: 'bg67g', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'итоги · концовка Г' },
+    { scene: '6.7Г', when: EG, bg: 'bg67g', music: 'modest_finish', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'итоги · концовка Г' },
       who: 'alex', kind: 'narr', text: 'Мы доезжаем. Это всё, что можно сказать про наш финал' },
     { when: W(EG, { car: { lte: 6 } }), who: 'alex', kind: 'narr', text: 'Мотор после капиталки держит обороты, но не отдаёт их — Толя собирал его из того, что успели привезти. Каждую горку я отпускаю газ чуть раньше, чем нужно, потому что не знаю, сколько машина сегодня выдержит' },
     { when: W(EG, { car: { gte: 7 } }), who: 'alex', kind: 'narr', text: 'Машина после капиталки не подводит ни на одном километре — просто быстрее остальных её это не делает' },
@@ -261,7 +261,7 @@ var CH6 = [
     { when: W(EG, { Вика_осталась: true }), who: 'alex', kind: 'narr', text: 'Онборд «Кузнечного» лежит на телефоне. Разбирать будем завтра, вдвоём. Условие остаётся в силе: каждый онборд, даже этот' },
 
     /* ===== Финал В — «Кювет»: риск в 6.6 без запаса ===== */
-    { scene: '6.7В', when: EV, bg: 'bg67v', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'сход · концовка В' },
+    { scene: '6.7В', when: EV, bg: 'bg67v', music: 'line_lock', hud: { pre: 'Ралли', name: 'Ладожская Дуга', tail: 'сход · концовка В' },
       ind: { car: { word: 'кончилась' } },
       who: 'alex', kind: 'narr', text: 'Машина уходит с дороги на той же связке. Не на крышу — боком, в сугроб у той самой ёлки. Вика цела. Я цел. Вика жмёт кнопку трекера — коротко, секунды четыре. «ОК»: мы живы' },
     { when: EV, who: 'vika', kind: 'say', text: 'Я прочитала «горку». Я прочитала' },
@@ -339,6 +339,12 @@ window.STORY = {
     engine_rebuild_delay:    { src: 'assets/audio/engine_rebuild_delay.mp3',    vol: 0.55, fadeIn: 2500 },   // 5.1–5.3: вскрытие, ремонтная сага, «Горный край»; петля 30 с, 88 bpm
     the_unresolved_question: { src: 'assets/audio/the_unresolved_question.mp3', vol: 0.65, fadeIn: 2500 },   // 5.4–5.5: инвестор, звонок Вики; петля 26,7 с, 72 bpm
     through_the_drift:       { src: 'assets/audio/through_the_drift.mp3',       vol: 0.48, fadeIn: 2200 },   // 5.6–5.7: машина готова, «Урал»; петля 24 с, 120 bpm
+    cold_focus:         { src: 'assets/audio/cold_focus.mp3',         vol: 0.73, fadeIn: 2500 },   // 6.1–6.2: админпроверка и ознакомление; петля 27,7 с, 104 bpm
+    quiet_weight:       { src: 'assets/audio/quiet_weight.mp3',       vol: 0.46, fadeIn: 2500 },   // 6.3: гостиница, правда про тормоза; 30 с, 80 bpm
+    coiled_tension:     { src: 'assets/audio/coiled_tension.mp3',     vol: 0.51, fadeIn: 2500 },   // 6.4–6.5: сервис-парк и старт; 30 с, 96 bpm
+    asphalt_torrent:    { src: 'assets/audio/asphalt_torrent.mp3',    vol: 0.55, fadeIn: 1200 },   // 6.6: спецучасток «Кузнечное»; петля 28,2 с, 136 bpm
+    hard_earned_ground: { src: 'assets/audio/hard_earned_ground.mp3', vol: 0.46, fadeIn: 2000 },   // 6.7А «Имя»; 30 с, 128 bpm
+    the_road_ahead:     { src: 'assets/audio/the_road_ahead.mp3',     vol: 0.56, fadeIn: 2000 },   // 6.7Б «Серебро»; 30 с, 88 bpm
     the_night_before:        { src: 'assets/audio/the_night_before.mp3',        vol: 0.64, fadeIn: 2500 }    // 5.8: разбор онборда перед финалом (гаснет на карточке главы 6); петля 30 с, 96 bpm
   },
 

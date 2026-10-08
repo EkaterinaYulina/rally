@@ -100,10 +100,10 @@
       }
     });
   }
-  function setMusic(v, instant) {
+  function setMusic(v, instant, ms) {
     MUS.want = (v && v !== 'stop') ? v : null;
     var tr = MUS.want && (S.tracks || {})[MUS.want];
-    musSync(instant ? 40 : (v === 'stop' ? 3000 : ((tr && tr.fadeIn) || 1400)));      // смена трека — кроссфейд
+    musSync(instant ? 40 : (ms || (v === 'stop' ? 3000 : ((tr && tr.fadeIn) || 1400))));      // ms (musicFade у реплики) — свой кроссфейд; смена трека — кроссфейд
   }
   function musUnlock() { if (MUS.unlocked) return; MUS.unlocked = true; musSync(1400); }
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, musUnlock, { passive: true }); });
@@ -1039,7 +1039,7 @@
   function applyProps(b, animate) {
     if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
     if (b.hud) setHud(b.hud);
-    if (b.music !== undefined) setMusic(b.music, !animate);
+    if (b.music !== undefined) setMusic(b.music, !animate, b.musicFade);
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
     if (b.big !== undefined) el.frame.classList.toggle('inds-big', !!b.big);
@@ -1313,7 +1313,7 @@
   function showCut(b, opts) {
     mode = 'cut'; cutAt = performance.now();
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
-    if (b.music !== undefined) setMusic(b.music, !!opts.instant);
+    if (b.music !== undefined) setMusic(b.music, !!opts.instant, b.musicFade);
     if (b.fx === 'crash') {
       openCut(true);
       if (!STATIC) { el.frame.classList.remove('shake'); void el.frame.offsetWidth; el.frame.classList.add('shake'); }
@@ -1330,7 +1330,7 @@
   }
   function showChapter(b, opts) {                   // чёрный кадр с названием главы; хук для рекламной паузы — событие vn:chapter
     mode = 'cut'; cutAt = performance.now(); chapHold = true;
-    if (b.music !== undefined) setMusic(b.music, !!(opts && opts.instant));
+    if (b.music !== undefined) setMusic(b.music, !!(opts && opts.instant), b.musicFade);
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
     el.dialog.classList.add('away');
     clearTimeout(el.cut._t);
