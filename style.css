@@ -455,6 +455,8 @@ body { position: fixed; inset: 0; }
   border: 1px solid rgba(236, 230, 214, .28); border-radius: calc(6 * var(--u)); padding: calc(12 * var(--u)) calc(18 * var(--u)); cursor: pointer; white-space: nowrap;
 }
 .tt-tab:hover { border-color: var(--amber); }
+.tt-tab:disabled { opacity: .4; cursor: default; }
+.tt-tab:disabled:hover { border-color: rgba(236, 230, 214, .28); }
 .tt-tab[aria-selected="true"] { border-color: var(--amber); background: rgba(255, 171, 0, .16); color: var(--amber); }
 .tt-tab:focus-visible, .rb-close:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .tt-body { display: flex; justify-content: center; flex: none; }

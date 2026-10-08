@@ -1577,13 +1577,15 @@
     var av = ttAvail(), tabs = [];
     if (av.stand >= 0) tabs.push({ id: 'st', label: 'Общий зачёт' });
     if (av.team) tabs.push({ id: 'team', label: 'Командный зачёт' });
-    [0, 1, 2, 3, 4, 5].forEach(function (s) { if (av.stages[s]) tabs.push({ id: String(s), label: RALLY_DATA.stages[s] }); });
-    if (!tabs.length) return;
-    if (!tabs.some(function (x) { return x.id === ttTab; })) ttTab = tabs[0].id;
+    [0, 1, 2, 3, 4, 5].forEach(function (s) { tabs.push({ id: String(s), label: RALLY_DATA.stages[s], off: !av.stages[s] }); });   // все этапы видны; непройденные не открываются
+    var on = tabs.filter(function (x) { return !x.off; });
+    if (!on.length) return;
+    if (!on.some(function (x) { return x.id === ttTab; })) ttTab = on[0].id;
     var box = $('ttTabs'); box.innerHTML = '';
     tabs.forEach(function (x) {
       var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'tt-tab'; bt.textContent = x.label;
       bt.setAttribute('role', 'tab'); bt.setAttribute('aria-selected', x.id === ttTab ? 'true' : 'false');
+      if (x.off) { bt.disabled = true; bt.setAttribute('aria-disabled', 'true'); bt.title = 'Этап ещё впереди'; box.appendChild(bt); return; }
       bt.addEventListener('click', function (e) { e.stopPropagation(); ttTab = x.id; ttRender(); bt.focus({ preventScroll: true }); });
       box.appendChild(bt);
     });
