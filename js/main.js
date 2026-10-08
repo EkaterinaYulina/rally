@@ -95,15 +95,15 @@
         g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + fade);
         k.tm = setTimeout(function () {
           if (id !== MUS.want && k.src) { try { k.src.stop(); } catch (e) {} k.src.disconnect(); k.src = null; }   // снят — с начала при следующем запуске
-          if (!(MUS.want && play) && c.state === 'running') c.suspend();                                                  // тишина — устройство вывода не держим
+          audSettle();                                                                                                    // тишина — устройство вывода не держим
         }, fade * 1000 + 60);
       }
     });
   }
-  function setMusic(v, instant) {
+  function setMusic(v, instant, ms) {
     MUS.want = (v && v !== 'stop') ? v : null;
     var tr = MUS.want && (S.tracks || {})[MUS.want];
-    musSync(instant ? 40 : (v === 'stop' ? 900 : ((tr && tr.fadeIn) || 1400)));      // смена трека — кроссфейд
+    musSync(instant ? 40 : (ms || (v === 'stop' ? 3000 : ((tr && tr.fadeIn) || 1400))));      // ms (musicFade у реплики) — свой кроссфейд; смена трека — кроссфейд
   }
   function musUnlock() { if (MUS.unlocked) return; MUS.unlocked = true; musSync(1400); }
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { window.addEventListener(ev, musUnlock, { passive: true }); });
@@ -117,11 +117,18 @@
     if (b) { b.setAttribute('aria-pressed', on ? 'false' : 'true'); b.setAttribute('aria-label', on ? 'Звук выключен' : 'Звук включён'); }
     musSync(350);
   }
+
+  /* аудио в игре — только музыка (треки S.tracks, поле music у реплики). Звуков и фоновых слоёв нет */
+  function audSettle() {                               // тишина — устройство вывода не держим
+    var c = MUS.ctx; if (!c || c.state !== 'running') return;
+    if (MUS.want && MUS.unlocked && !MUS.muted && !MUS.hidden && !MUS.paused) return;
+    c.suspend();
+  }
   (function () { var b = document.getElementById('sndbtn'); if (!b) return; setMuted(MUS.muted); b.addEventListener('click', function () { MUS.unlocked = true; setMuted(!MUS.muted); b.blur(); }); })();
 
   var typing = false, timer = null, pos = 0, ended = false, autoT = null, cutAt = 0, bgCur = null, cutOpen = false, chapHold = false, chapT = null;
   var stats = { car: null, trust: null };
-  var rbOpen = false, rbSel = {};
+  var rbOpen = false, rbSel = {}, ttOpen = false;
   /* состояние, которое не лежит в флагах и пересобирается replay(): снимки 🤝/🔧 на старте этапов,
      однократное «гашение» следующего прироста доверия ({наорал}), слова индикаторов на начало главы */
   var snaps = {}, dampPending = false, chap0 = null;
@@ -1032,7 +1039,7 @@
   function applyProps(b, animate) {
     if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
     if (b.hud) setHud(b.hud);
-    if (b.music !== undefined) setMusic(b.music, !animate);
+    if (b.music !== undefined) setMusic(b.music, !animate, b.musicFade);
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
     if (b.big !== undefined) el.frame.classList.toggle('inds-big', !!b.big);
@@ -1084,6 +1091,7 @@
   function showBeat(n, opts) {
     opts = opts || {};
     var b = B[n];
+    ttBtnSync();
     stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false;
     el.hint.classList.remove('on'); el.cHint.classList.remove('on');
     if (b.kind !== 'protocol' && b.kind !== 'standings' && b.kind !== 'hud') hideScreen();
@@ -1305,8 +1313,7 @@
   function showCut(b, opts) {
     mode = 'cut'; cutAt = performance.now();
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
-    if (b.sfx) window.dispatchEvent(new CustomEvent('vn:sfx', { detail: b.sfx }));   // звук подключим позже
-    if (b.music !== undefined) setMusic(b.music);
+    if (b.music !== undefined) setMusic(b.music, !!opts.instant, b.musicFade);
     if (b.fx === 'crash') {
       openCut(true);
       if (!STATIC) { el.frame.classList.remove('shake'); void el.frame.offsetWidth; el.frame.classList.add('shake'); }
@@ -1323,6 +1330,7 @@
   }
   function showChapter(b, opts) {                   // чёрный кадр с названием главы; хук для рекламной паузы — событие vn:chapter
     mode = 'cut'; cutAt = performance.now(); chapHold = true;
+    if (b.music !== undefined) setMusic(b.music, !!(opts && opts.instant), b.musicFade);
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
     el.dialog.classList.add('away');
     clearTimeout(el.cut._t);
@@ -1377,13 +1385,13 @@
 
   /* ---------- переходы ---------- */
   function go() {                                   // следующая реплика без «дописывания»
-    if (ended || rbOpen) return;
+    if (ended || rbOpen || ttOpen) return;
     var n = nextVisible(i);
     if (n >= B.length) { showEnd(); return; }
     i = n; save(); showBeat(i);
   }
   function advance() {
-    if (ended || rbOpen || mode === 'choice') return;
+    if (ended || rbOpen || ttOpen || mode === 'choice') return;
     if (mode === 'cut' && chapHold) {               // карточка главы: тап не сразу
       if (performance.now() - cutAt < 700) return;
       chapHold = false; go(); return;
@@ -1538,14 +1546,89 @@
     showBeat(i, { force: true, instant: true });
   }
   buildRb();
+
+  /* ---------- турнирная таблица: общий зачёт и результаты пройденных этапов (открывается кнопкой в шапке или клавишей T) ---------- */
+  var ttTab = 'st';
+  function ttAvail() {                              // что игрок уже видел: протоколы этапов и общий зачёт по битам до текущей реплики (включительно)
+    var st = {}, stand = -1, team = false;
+    for (var n = 0; n <= i && n < B.length; n++) {
+      var b = B[n]; if (!visible(n)) continue;
+      if (b.kind === 'protocol') st[b.stage] = true;
+      else if (b.kind === 'standings') { if (b.mode === 'team') team = true; else { stand = Math.max(stand, b.stage); st[b.stage] = true; } }
+    }
+    return { stages: st, stand: stand, team: team, any: stand >= 0 || Object.keys(st).length > 0 };
+  }
+  function ttBtnSync() { var a = ttAvail(); $('ttbtn').hidden = !a.any; return a; }
+  function ttData(tab, av) {                        // → {title:[pre,name], sub, gap, rows, alex, stand}
+    var dv = derived(), t = dv.t.slice(), retAt = function (si) { return (si === 2 && dv.ret2 === 1) || (si === 5 && dv.crash6 === 1); };
+    var upto = tab === 'st' || tab === 'team' ? Math.max(av.stand, 0) : +tab;
+    for (var si = 0; si <= upto; si++) if (t[si] == null && si !== 3 && !retAt(si)) t[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
+    if (tab === 'team') return { title: ['Командный зачёт', 'сезона'], sub: 'Чемпионат России · класс R2 · командный зачёт', gap: 'Отставание', rows: teamRows(t), stand: true };
+    if (tab === 'st') {
+      var d = standRows({ stage: upto }, t), fin = upto === 5;
+      return { title: [fin ? 'Итоговый зачёт' : 'Общий зачёт', fin ? 'сезона' : 'после ' + (NUMW[upto + 1] || (upto + 1)) + ' ' + plural(upto + 1, 'этапа', 'этапов', 'этапов')],
+               sub: 'Чемпионат России · класс R2 · личный зачёт', gap: 'Движение', rows: d.rows, stand: true };
+    }
+    var s = +tab, p = protoRows(s, s === 3 ? null : (retAt(s) ? null : t[s]));
+    var rows = s === 3 ? p.rows.filter(function (r) { return !r.alex; }) : p.rows;     // «Горный край»: Алекс не заявлен
+    return { title: ['Итоги ралли', '«' + RALLY_DATA.stages[s] + '»'], sub: 'Чемпионат России · класс R2 · ' + RALLY_DATA.dates[s] + (s === 3 ? ' · наш экипаж не заявлен' : ''), gap: 'Отставание от лидера', rows: rows, stand: false };
+  }
+  function ttRender() {
+    var av = ttAvail(), tabs = [];
+    if (av.stand >= 0) tabs.push({ id: 'st', label: 'Общий зачёт' });
+    if (av.team) tabs.push({ id: 'team', label: 'Командный зачёт' });
+    [0, 1, 2, 3, 4, 5].forEach(function (s) { if (av.stages[s]) tabs.push({ id: String(s), label: RALLY_DATA.stages[s] }); });
+    if (!tabs.length) return;
+    if (!tabs.some(function (x) { return x.id === ttTab; })) ttTab = tabs[0].id;
+    var box = $('ttTabs'); box.innerHTML = '';
+    tabs.forEach(function (x) {
+      var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'tt-tab'; bt.textContent = x.label;
+      bt.setAttribute('role', 'tab'); bt.setAttribute('aria-selected', x.id === ttTab ? 'true' : 'false');
+      bt.addEventListener('click', function (e) { e.stopPropagation(); ttTab = x.id; ttRender(); bt.focus({ preventScroll: true }); });
+      box.appendChild(bt);
+    });
+    var d = ttData(ttTab, av), ti = $('ttTitle');
+    $('tt').classList.toggle('st', d.stand);
+    ti.textContent = '';
+    var a = document.createElement('span'); a.className = 'pt-pre'; a.textContent = d.title[0];
+    var b2 = document.createElement('span'); b2.className = 'pt-name'; b2.textContent = d.title[1];
+    ti.appendChild(a); ti.appendChild(document.createTextNode(' ')); ti.appendChild(b2);
+    $('ttSub').textContent = d.sub; $('ttGap').textContent = d.gap;
+    var body = $('ttBody'), me = null; body.innerHTML = '';
+    d.rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      if (r.alex) { tr.classList.add('me'); me = tr; } if (r.off) tr.classList.add('off'); else if (!r.alex && r.place === 1) tr.classList.add('lead');
+      [[r.place, 'c-pl'], [r.label, 'c-cr'], [r.gapT, 'c-gap'], [r.pts ? String(r.pts) : '—', 'c-pt']].forEach(function (c, ci) {
+        var td = document.createElement('td'); td.className = c[1] + (ci === 2 && r.mv ? ' mv-' + r.mv : ''); td.textContent = c[0]; tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    return me;
+  }
+  function openTT() {
+    var av = ttAvail(); if (!av.any) return;
+    if (!av.stages[+ttTab] && ttTab !== 'st' && ttTab !== 'team') ttTab = 'st';
+    if (ttTab === 'st' && av.stand < 0) ttTab = '';
+    ttOpen = true; $('tt').hidden = false;
+    var me = ttRender();
+    $('tt').scrollTop = 0;
+    var cur = document.querySelector('.tt-tab[aria-selected="true"]') || $('ttClose');
+    try { cur.focus({ preventScroll: true }); } catch (e) {}
+    if (me) setTimeout(function () { if (!ttOpen) return; var pr = $('tt').getBoundingClientRect(), r = me.getBoundingClientRect(); if (r.bottom > pr.bottom - 20) $('tt').scrollTop = $('tt').scrollTop + (r.top - pr.top) - pr.height / 2; }, 30);
+  }
+  function closeTT() { ttOpen = false; $('tt').hidden = true; try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {} }   // фокус не возвращаем на кнопку: иначе пробел снова открыл бы таблицу
+  $('ttbtn').addEventListener('click', function (e) { e.stopPropagation(); if (ttOpen) closeTT(); else openTT(); });
+  $('ttClose').addEventListener('click', function (e) { e.stopPropagation(); closeTT(); });
   $('roadbook').addEventListener('click', function (e) { e.stopPropagation(); if (rbOpen) closeRb(); else openRb(); });
 
   /* ---------- ввод ---------- */
   el.stage.addEventListener('click', function (e) {
-    if (e.target.closest && (e.target.closest('#roadbook') || e.target.closest('#end') || e.target.closest('#choice') || e.target.closest('#rb'))) return;
+    if (e.target.closest && (e.target.closest('#roadbook') || e.target.closest('#ttbtn') || e.target.closest('#tt') || e.target.closest('#end') || e.target.closest('#choice') || e.target.closest('#rb'))) return;
     advance();
   });
   document.addEventListener('keydown', function (e) {
+    if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
+    if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { if (ttAvail().any) { e.preventDefault(); openTT(); } return; }
     if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
     if (rbOpen) { if (e.key === 'Escape') { e.preventDefault(); closeRb(); } return; }
     if (mode === 'choice' && !ended) {
@@ -1593,7 +1676,8 @@
   /* фоны подгружаем заранее, чтобы смена кадра не мигала */
   setTimeout(function () { Object.keys(S.bgs).forEach(function (k) { var im = new Image(); im.src = S.bgs[k].src; }); }, 600);
 
-  window.__vn = { music: function () { var o = { want: MUS.want, unlocked: MUS.unlocked, muted: MUS.muted, hidden: MUS.hidden, paused: MUS.paused, ctx: MUS.ctx && MUS.ctx.state, tracks: {} }; Object.keys(MUS.trk).forEach(function (k) { var t = MUS.trk[k]; o.tracks[k] = t.el ? { fallback: true, paused: t.el.paused, vol: +t.el.volume.toFixed(3) } : { ready: !!t.buf, started: !!t.src, gain: +t.gain.gain.value.toFixed(3) }; }); return o; }, bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
+  window.__vn = {
+    music: function () { var o = { want: MUS.want, unlocked: MUS.unlocked, muted: MUS.muted, hidden: MUS.hidden, paused: MUS.paused, ctx: MUS.ctx && MUS.ctx.state, tracks: {} }; Object.keys(MUS.trk).forEach(function (k) { var t = MUS.trk[k]; o.tracks[k] = t.el ? { fallback: true, paused: t.el.paused, vol: +t.el.volume.toFixed(3) } : { ready: !!t.buf, started: !!t.src, gain: +t.gain.gain.value.toFixed(3) }; }); return o; }, bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
                   derived: function () { return derived(); }, snaps: function () { return snaps; },
                   protocol: function () { return Array.prototype.map.call(el.protoBody.querySelectorAll('tr'), function (r) { return Array.prototype.map.call(r.children, function (c) { return c.textContent; }); }); },
                   mode: function () { return mode; }, ended: function () { return ended; }, ending: function () { return endKey(); },
