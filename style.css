@@ -72,7 +72,7 @@ body { position: fixed; inset: 0; }
 /* ---------- Шапка ---------- */
 .hud {
   position: absolute; top: 0; left: 0; right: 0; z-index: 7;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;   /* три зоны: место | индикаторы | кнопки; индикаторы всегда по центру и не едут от длины подписи */
+  display: grid; grid-template-columns: minmax(0, 1.35fr) auto minmax(0, 1fr); align-items: center;   /* три зоны: место | индикаторы | кнопки; индикаторы всегда по центру и не едут от длины подписи */
   gap: calc(24 * var(--u));
   padding: calc(38 * var(--u)) calc(48 * var(--u)) 0;
   padding-left: max(calc(48 * var(--u)), var(--safe-l));
@@ -94,10 +94,9 @@ body { position: fixed; inset: 0; }
 .loc-rally { font-weight: 300; }
 .loc-name  { font-weight: 800; }
 .loc-km    { grid-column: 2; grid-row: 2; min-width: 0; margin-top: calc(3 * var(--u)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-             font-family: var(--f-mono); font-weight: 500; font-size: .74em; letter-spacing: 0; color: var(--ink-2); }
+             font-family: var(--f-mono); font-weight: 500; font-size: .7em; letter-spacing: -.01em; color: var(--ink-2); }
 .clk { font-variant-numeric: tabular-nums; color: var(--ink); }
-.clk-c { font-style: normal; animation: clkblink 1s steps(1, end) infinite; }
-@keyframes clkblink { 50% { opacity: .25; } }
+.clk-c { font-style: normal; opacity: .6; }
 
 .inds { grid-column: 2; display: flex; gap: calc(34 * var(--u)); justify-content: center; justify-self: center; }
 .ind  { font-size: calc(18 * var(--u)); position: relative; }

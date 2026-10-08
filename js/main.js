@@ -282,17 +282,18 @@
 
   /* ---------- шапка, индикаторы, фон ---------- */
   /* Шапка слева, две строки: крупно — название ралли (или места, если мы не на ралли); мелко — всё остальное: время, СУ с названием и километражем, уточнение.
-     Время (h.clk = 'ЧЧ:ММ') идёт: одна игровая минута за 6 секунд, двоеточие мигает раз в секунду; в снимках (?static) часы стоят. */
+     Время (ЧЧ:ММ:СС) идёт в реальном темпе; в снимках (?static) часы стоят. */
   var clkKey = null, clkBase = 0, clkT0 = 0, clkTimer = null, clkNode = null, clkLast = '';
   function clkText() {
-    var m = (clkBase + (STATIC ? 0 : Math.floor((Date.now() - clkT0) / 6000))) % 1440;
-    return [('0' + Math.floor(m / 60)).slice(-2), ('0' + (m % 60)).slice(-2)];
+    var sec = (clkBase * 60 + (STATIC ? 0 : Math.floor((Date.now() - clkT0) / 1000))) % 86400;   // идут как настоящие: одна игровая секунда = секунда
+    function z(n) { return ('0' + n).slice(-2); }
+    return [z(Math.floor(sec / 3600)), z(Math.floor(sec / 60) % 60), z(sec % 60)];
   }
   function clkTick() {
     if (!clkNode) return;
     var t = clkText(), k = t.join(':');
     if (k === clkLast) return; clkLast = k;
-    clkNode.firstChild.nodeValue = t[0]; clkNode.lastChild.nodeValue = t[1];
+    var n = clkNode.childNodes; n[0].nodeValue = t[0]; n[2].nodeValue = t[1]; n[4].nodeValue = t[2];
     document.getElementById('loc').title = locTitle;
   }
   var locTitle = '', lastHud = null, curScene = null;
@@ -324,12 +325,13 @@
       if (clkKey !== clkStr) { clkKey = clkStr; clkBase = base; clkT0 = Date.now(); }   // тот же час в соседних репликах не сбрасывает ход часов
       var c = document.createElement('span'); c.className = 'clk';
       var t = clkText(); clkLast = t.join(':');
-      c.appendChild(document.createTextNode(t[0]));
-      var col = document.createElement('i'); col.className = 'clk-c'; col.textContent = ':'; c.appendChild(col);
-      c.appendChild(document.createTextNode(t[1]));
+      function colon() { var q = document.createElement('i'); q.className = 'clk-c'; q.textContent = ':'; return q; }
+      c.appendChild(document.createTextNode(t[0])); c.appendChild(colon());
+      c.appendChild(document.createTextNode(t[1])); c.appendChild(colon());
+      c.appendChild(document.createTextNode(t[2]));
       el.locKm.appendChild(c); clkNode = c;
       if (sub.length) el.locKm.appendChild(document.createTextNode(' · ' + sub.join(' · ')));
-      if (!STATIC) clkTimer = setInterval(clkTick, 1000);
+      if (!STATIC) clkTimer = setInterval(clkTick, 250);
     } else { clkKey = null; el.locKm.textContent = sub.join(' · '); }
     el.locKm.hidden = !(hasClk || sub.length);
     locTitle = (h.pre ? h.pre + ' ' : '') + h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
@@ -385,6 +387,10 @@
      bg23 (2.3)  — лампа над столом иногда моргает
      bg24 (2.4)  — снежная пыль из-под колёс, позёмка, пар дыхания зрителей
      bg25 (2.5)  — «запись с онборда» на экране ноутбука, снег в окне, голубой свет экрана
+     bg31 (3.1)  — дымка над парковкой, рассеянный свет;  bg34 (3.4) — пыль из-под колёс, тёплое солнце в пыльной дымке
+     bg35 (3.5)  — позёмка из песка у земли, блики на кубках, свет из-за туч;  bg36 (3.6) — лампа над верстаком «дышит» и моргает, пылинки в луче
+     bg37 (3.7)  — солнце и пылинки над дорогой, блики на щебне и воде озёр, дымка над озером
+     bg38 (3.8)  — свет окон гостиницы «дышит», сумеречная дымка;  bg39 (3.9) — мерцает экран ноутбука, голубой отсвет, пылинки, пар над кружками
      bg41 (4.1)  — лампа и окно «дышат», экран ноутбука мерцает
      bg42 (4.2)  — дымок из выхлопа, туман над полем, солнце за облаками
      bg43 (4.3)  — пыль и щебень из-под машины в прыжке
@@ -419,7 +425,9 @@
     bg11: ['rain', 'puff:smoke', 'headlights'], bg12: ['glass'], bg13: ['puff:smoke13', 'lights13', 'mist'],
     bg14: ['rain', 'mist', 'glow'], bg15: ['glow', 'screen15', 'snow'], bg21: ['puff:steam'], bg22: ['snow'], bg23: ['flicker'],
     bg24: ['snow', 'puff:dust24', 'puff:breath24'], bg25: ['video25', 'glow', 'snow'],
-    bg33: ['puff:steam33', 'led33'],
+    bg31: ['mist', 'glow'], bg33: ['puff:steam33', 'led33'],
+    bg34: ['mist', 'puff:dust34', 'glow'], bg35: ['mist', 'glow', 'glint', 'snow'], bg36: ['mist', 'glow', 'snow', 'flicker'],
+    bg37: ['mist', 'glow', 'glint', 'snow'], bg38: ['mist', 'glow'], bg39: ['glow', 'screen', 'snow', 'puff:steam39'],
     bg41: ['glow', 'screen'], bg42: ['mist', 'puff:exhaust42', 'glow'], bg43: ['puff:dust43'],
     bg44: ['mist', 'flicker', 'snow', 'glow'], bg45: ['glow', 'blink'], bg45b: ['mist', 'glow'],
     bg46: ['mist', 'glass', 'glow', 'blink'], bg47a: ['mist', 'snow', 'glint'], bg47b: ['mist', 'snow', 'glow'],
@@ -438,6 +446,10 @@
   };
   var SNOW = {
     bg22: { poly: [[0, 0], [1058, 0], [1088, 612], [380, 900], [0, 900]], n: 1, sc: 1, vx: 0 },
+    bg35: { poly: [[0, 640], [1600, 640], [1600, 900], [0, 900]], n: .8, sc: .7, vx: -120, fast: 1, streak: 1, col: '232,226,210' },
+    bg36: { poly: [[820, 150], [950, 150], [1150, 520], [640, 520]], n: .3, sc: .5, vx: 0, local: true, col: '255,230,180' },
+    bg37: { poly: [[700, 100], [900, 100], [1000, 520], [600, 520]], n: .35, sc: .5, vx: 0, local: true, col: '255,236,190' },
+    bg39: { poly: [[300, 300], [1400, 300], [1400, 800], [300, 800]], n: .25, sc: .5, vx: 0, local: true, col: '200,215,235' },
     bg15: { poly: [[992, 18], [1224, 18], [1224, 222], [992, 222]], n: .22, sc: .6, vx: 0, local: true },
     bg25: { poly: [[212, 48], [406, 48], [406, 212], [212, 212]], n: .22, sc: .6, vx: 0, local: true },
     bg24: { poly: [[0, 0], [1600, 0], [1600, 900], [0, 900]], n: 1.1, sc: 1, vx: -70, fast: 1, col: '170,185,205' },
@@ -456,6 +468,12 @@
   var MIST = {
     bg13: [{ y: 640, rx: 460, ry: 70, sp: 11, a: .075, col: [135, 155, 180], off: 0 }, { y: 560, rx: 520, ry: 60, sp: -7, a: .06, col: [120, 145, 175], off: 700 }, { y: 300, rx: 540, ry: 130, sp: 5, a: .05, col: [115, 140, 170], off: 300 }],
     bg14: [{ y: 380, rx: 560, ry: 120, sp: 14, a: .10, col: [232, 232, 226], off: 0 }, { y: 640, rx: 620, ry: 90, sp: -9, a: .08, col: [225, 225, 220], off: 800 }, { y: 200, rx: 640, ry: 130, sp: 7, a: .07, col: [235, 235, 232], off: 400 }],
+    bg31: [{ y: 330, rx: 760, ry: 55, sp: 7, a: .09, col: [215, 220, 226], off: 0 }, { y: 260, rx: 820, ry: 40, sp: -5, a: .07, col: [210, 216, 224], off: 500 }],
+    bg34: [{ y: 540, rx: 760, ry: 55, sp: 6, a: .08, col: [235, 205, 150], off: 0 }, { y: 360, rx: 700, ry: 80, sp: -4, a: .05, col: [240, 215, 165], off: 600 }],
+    bg35: [{ y: 650, rx: 820, ry: 45, sp: 9, a: .07, col: [230, 224, 212], off: 0 }],
+    bg36: [{ y: 720, rx: 760, ry: 50, sp: 5, a: .05, col: [190, 196, 208], off: 300 }],
+    bg37: [{ y: 262, rx: 480, ry: 30, sp: 5, a: .08, col: [236, 236, 230], off: 0 }, { y: 560, rx: 760, ry: 50, sp: -4, a: .05, col: [240, 232, 205], off: 600 }],
+    bg38: [{ y: 560, rx: 820, ry: 60, sp: 7, a: .07, col: [150, 162, 188], off: 0 }, { y: 430, rx: 760, ry: 40, sp: -5, a: .05, col: [155, 165, 190], off: 500 }],
     bg42: [{ y: 455, rx: 520, ry: 42, sp: 9, a: .12, col: [210, 215, 220], off: 0 }, { y: 485, rx: 600, ry: 36, sp: -6, a: .09, col: [200, 205, 212], off: 800 }],
     bg44: [{ y: 300, rx: 700, ry: 110, sp: 6, a: .07, col: [255, 230, 180], off: 0 }, { y: 560, rx: 760, ry: 60, sp: -5, a: .05, col: [235, 215, 170], off: 600 }],
     bg45b: [{ y: 330, rx: 620, ry: 90, sp: 9, a: .09, col: [225, 228, 230], off: 0 }, { y: 560, rx: 700, ry: 70, sp: -6, a: .07, col: [215, 220, 224], off: 700 }, { y: 250, rx: 640, ry: 60, sp: 5, a: .06, col: [225, 228, 230], off: 300 }],
@@ -484,6 +502,13 @@
     bg14: [{ x: 1130, y: 235, r: 230, col: [255, 214, 150], a: .07, sp: .5 }],
     bg15: [{ x: 295, y: 185, r: 300, col: [255, 190, 100], a: .07, sp: .7 }, { x: 460, y: 290, r: 190, col: [120, 190, 255], a: .05, sp: 1.3 }],
     bg25: [{ x: 850, y: 230, r: 430, col: [140, 190, 255], a: .05, sp: .9 }],
+    bg31: [{ x: 800, y: 30, r: 700, col: [236, 241, 248], a: .04, sp: .3 }],
+    bg34: [{ x: 300, y: 100, r: 520, col: [255, 225, 160], a: .08, sp: .4 }],
+    bg35: [{ x: 900, y: 60, r: 600, col: [255, 240, 200], a: .07, sp: .35 }],
+    bg36: [{ x: 880, y: 95, r: 420, col: [255, 215, 150], a: .09, sp: .6 }],
+    bg37: [{ x: 800, y: 60, r: 600, col: [255, 235, 180], a: .06, sp: .35 }],
+    bg38: [{ x: 200, y: 300, r: 260, col: [255, 200, 120], a: .10, sp: .8 }, { x: 430, y: 290, r: 200, col: [255, 205, 130], a: .07, sp: 1.1 }],
+    bg39: [{ x: 930, y: 560, r: 320, col: [140, 200, 255], a: .06, sp: 1.1 }, { x: 600, y: 190, r: 200, col: [255, 210, 140], a: .05, sp: .9 }],
     bg41: [{ x: 940, y: 235, r: 420, col: [255, 200, 120], a: .07, sp: .6 }, { x: 780, y: 190, r: 300, col: [150, 185, 235], a: .04, sp: .4 }, { x: 240, y: 350, r: 260, col: [150, 200, 255], a: .05, sp: 1.1 }],
     bg42: [{ x: 850, y: 70, r: 520, col: [255, 245, 220], a: .05, sp: .3 }],
     bg44: [{ x: 1230, y: 125, r: 380, col: [255, 235, 190], a: .09, sp: .8 }],
@@ -512,10 +537,12 @@
   };
   var FLICKER = {                                   // области, затемняемые при моргании света: [cx, cy, радиус, непрозрачность, растяжение x, растяжение y]
     bg23: [[770, 330, 640, .5], [765, 100, 150, .78], [930, 124, 560, .5, 1, .05]],
+    bg36: [[880, 110, 520, .3], [882, 90, 110, .5]],
     bg44: [[1230, 125, 520, .34], [1232, 102, 110, .55]],
     bg54: [[612, 70, 520, .3], [612, 45, 110, .5]]
   };
   var SCRN = {                                      // экраны ноутбуков: мерцание и бегущая строка развёртки
+    bg39: { poly: [[864, 500], [1004, 512], [996, 590], [866, 600]], col: '150,205,255', a: .06 },
     bg41: { poly: [[140, 285], [331, 296], [333, 400], [144, 408]], col: '150,200,255', a: .06 },
     bg49: { poly: [[447, 300], [797, 300], [797, 487], [447, 487]], col: '150,205,255', a: .05 },
     bg53: { poly: [[803, 346], [1038, 336], [998, 500], [775, 490]], col: '200,225,255', a: .05 }
@@ -528,6 +555,8 @@
     bg67v: [{ x: 562, y: 286, r: 80, col: '255,50,40', per: 1.1, on: .5, a: .6 }, { x: 408, y: 256, r: 44, col: '255,50,40', per: 1.1, on: .5, a: .55, off: .55 }]
   };
   var GLINT = {                                     // блики на металле: x, y, размер, период, сдвиг
+    bg35: [{ x: 616, y: 466, r: 24, per: 3.4, off: 0 }, { x: 786, y: 436, r: 26, per: 4.1, off: 1.2 }, { x: 836, y: 424, r: 20, per: 3.1, off: 2.3 }, { x: 940, y: 494, r: 22, per: 3.8, off: .7 }, { x: 1164, y: 466, r: 18, per: 4.4, off: 1.8 }],
+    bg37: [{ x: 760, y: 640, r: 18, per: 3.6, off: 0 }, { x: 850, y: 700, r: 20, per: 4.2, off: 1.2 }, { x: 700, y: 760, r: 16, per: 3.1, off: 2.1 }, { x: 920, y: 620, r: 14, per: 3.9, off: .7 }, { x: 330, y: 290, r: 20, per: 4.4, off: .4 }, { x: 1210, y: 285, r: 18, per: 3.8, off: 1.6 }],
     bg47a: [{ x: 672, y: 300, r: 34, per: 3.4, off: 0 }, { x: 655, y: 380, r: 28, per: 4.1, off: 1.3 }, { x: 713, y: 378, r: 22, per: 3.1, off: 2.2 }],
     bg57: [{ x: 900, y: 700, r: 22, per: 3.6, off: 0 }, { x: 1120, y: 770, r: 20, per: 4.2, off: 1.1 }, { x: 1320, y: 700, r: 18, per: 3.1, off: 2 }, { x: 1000, y: 830, r: 24, per: 4.6, off: 2.7 },
            { x: 1230, y: 620, r: 16, per: 3.3, off: .6 }, { x: 760, y: 760, r: 18, per: 3.9, off: 1.8 }, { x: 1450, y: 820, r: 22, per: 4.4, off: 3.1 }, { x: 600, y: 690, r: 16, per: 3.0, off: 2.4 }],
@@ -558,6 +587,8 @@
     dust43:  { em: [[420, 470], [300, 495], [190, 480], [110, 470]], dx: -250, dy: -50, pw: .8, life: [2.4, 3.8], spawn: [.08, .15], r0: [30, 50], grow: 110, al: [.16, .28], col: [226, 196, 140], wob: [4, 22] },
     steam48: { em: [[900, 350], [820, 345], [960, 320]], dx: 70, dy: -250, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
     steam48b: { em: [[870, 372], [800, 366], [960, 352]], dx: 70, dy: -260, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
+    dust34:  { em: [[520, 545], [900, 552]], dx: -120, dy: -45, pw: .8, life: [2.4, 3.8], spawn: [.12, .22], r0: [24, 40], grow: 90, al: [.10, .18], col: [226, 200, 150], wob: [4, 20] },
+    steam39: { em: [[1018, 792], [1130, 812]], dx: -6, dy: -90, pw: .9, life: [2.2, 3.4], spawn: [.4, .65], r0: [3, 6], grow: 18, al: [.08, .14], col: [236, 236, 240], wob: [2, 8] },
     steam49: { em: [[1003, 498]], dx: -10, dy: -150, pw: .9, life: [2.2, 3.4], spawn: [.28, .45], r0: [4, 7], grow: 22, al: [.10, .17], col: [240, 236, 228], wob: [2, 10] },
     steam56: { em: [[820, 335], [760, 325], [880, 345]], dx: 40, dy: -250, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
     steam64: { em: [[930, 360], [885, 348], [1000, 385]], dx: 40, dy: -210, pw: .85, life: [3.4, 5.2], spawn: [.2, .34], r0: [10, 16], grow: 70, al: [.10, .17], col: [215, 222, 235], wob: [3, 28] },
