@@ -175,6 +175,7 @@ body { position: fixed; inset: 0; }
 }
 .sndbtn-ico { width: calc(24 * var(--u)); height: calc(24 * var(--u)); min-width: 18px; min-height: 18px; }
 .sndbtn .snd-off { display: none; }
+.backbtn:disabled { opacity: .35; cursor: default; }                 /* техническая кнопка «Назад» для вычитки сценария — перед релизом убрать */
 .sndbtn[aria-pressed="false"] { color: var(--ink-2); border-color: rgba(255, 255, 255, .22); box-shadow: none; }
 .sndbtn[aria-pressed="false"] .snd-wave { display: none; }
 .sndbtn[aria-pressed="false"] .snd-off { display: inline; }
