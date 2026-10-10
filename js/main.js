@@ -39,6 +39,7 @@
   })();
 
   var i = 0, flags = {}, mode = 'beat';            // beat | choice | cut
+  var hist = [], entryF = '{}';                    // история для кнопки «Назад» (техническая, для вычитки): [{i, f}] — номер реплики и флаги на входе в неё
   /* ---------- музыка: треки из S.tracks, поле music у реплики ('id' — включить, 'stop' — погасить) ----------
      Web Audio API, а не <audio>: по кругу без щелчка на стыке, точные плавные входы и выходы, и на Android не появляется
      плеер страницы в панели уведомлений (пункт чек-листа Яндекс Игр). Звук стартует после первого нажатия игрока
@@ -1476,19 +1477,34 @@
   }
   function pick(b, o) {
     if (mode !== 'choice') return;
+    hist.push({ i: i, f: entryF });
     setChoice(b, o);
     el.choice.hidden = true; el.dialog.classList.remove('away');
     if (optStat(o)) applyStats(optStat(o), true);            // изменение — только после подтверждения выбора
     if (o.damp) dampPending = true;
-    i = nextVisible(i); save(); showBeat(i, { force: true });
+    i = nextVisible(i); entryF = JSON.stringify(flags); backSync(); save(); showBeat(i, { force: true });
   }
 
   /* ---------- переходы ---------- */
+  function backSync() { var b = document.getElementById('backbtn'); if (b) b.disabled = !hist.length; }
+  function back() {                                 // шаг назад на предыдущую показанную реплику (техническая кнопка для вычитки)
+    if (rbOpen || ttOpen || !hist.length) return;
+    var h = hist.pop();
+    ended = false; el.end.hidden = true;
+    stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false; hideScreen();
+    closeCut(true); el.choice.hidden = true; el.dialog.classList.remove('away');
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
+    flags = JSON.parse(h.f); entryF = h.f;
+    replay(h.i - 1);
+    i = h.i; lastName = null; backSync(); save();
+    showBeat(i, { force: true, instant: true });
+  }
+  (function () { var b = document.getElementById('backbtn'); if (b) b.addEventListener('click', function () { back(); b.blur(); }); })();
   function go() {                                   // следующая реплика без «дописывания»
     if (ended || rbOpen || ttOpen) return;
     var n = nextVisible(i);
     if (n >= B.length) { showEnd(); return; }
-    i = n; save(); showBeat(i);
+    hist.push({ i: i, f: entryF }); i = n; entryF = JSON.stringify(flags); backSync(); save(); showBeat(i);
   }
   function advance() {
     if (ended || rbOpen || ttOpen || mode === 'choice') return;
@@ -1512,7 +1528,7 @@
     try { el.endBtn.focus({ preventScroll: true }); } catch (e) {}
   }
   function restart() {
-    ended = false; el.end.hidden = true; flags = {}; i = 0; lastName = null; hideScreen();
+    ended = false; el.end.hidden = true; flags = {}; i = 0; lastName = null; hist = []; entryF = '{}'; backSync(); hideScreen();
     closeCut(true); save(); replay(-1); showBeat(0, { force: true });
   }
 
@@ -1642,7 +1658,7 @@
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
     replay(n - 1);
     if (!visible(n)) { n = nextVisible(n); replay(n - 1); }
-    i = n; lastName = null; closeRb(); save();
+    i = n; lastName = null; hist = []; entryF = JSON.stringify(flags); backSync(); closeRb(); save();
     showBeat(i, { force: true, instant: true });
   }
   buildRb();
@@ -1747,6 +1763,7 @@
     }
     if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && !e.altKey) { MUS.unlocked = true; setMuted(!MUS.muted); return; }   // S — звук вкл/выкл (M занята маршрутным листом)
     if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); back(); return; }
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); advance(); }
   });
   el.endBtn.addEventListener('click', restart);
@@ -1772,7 +1789,7 @@
     i = lastVisible(); replay(i - 1); showBeat(i, { instant: true, force: true }); showEnd();
   }
   else {
-    i = Math.min(start, B.length - 1);
+    i = Math.min(start, B.length - 1); entryF = JSON.stringify(flags);
     replay(i - 1);
     showBeat(i, { force: true, instant: params.has('b') || params.has('s') });
   }
