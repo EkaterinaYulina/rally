@@ -116,8 +116,10 @@
   window.VN.setPaused = function (on) { MUS.paused = !!on; musSync(on ? 100 : 600); };         // вызывать из game_api_pause / game_api_resume и вокруг рекламы
   function setMuted(on) {
     MUS.muted = on; try { localStorage.setItem('vn_sound', on ? 'off' : 'on'); } catch (e) {}
-    var b = document.getElementById('sndbtn');
-    if (b) { b.setAttribute('aria-pressed', on ? 'false' : 'true'); b.setAttribute('aria-label', on ? 'Звук выключен' : 'Звук включён'); }
+    ['sndbtn', 'coverSnd'].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) { b.setAttribute('aria-pressed', on ? 'false' : 'true'); b.setAttribute('aria-label', on ? 'Звук выключен' : 'Звук включён'); }
+    });
     musSync(350);
   }
 
@@ -127,11 +129,17 @@
     if (MUS.want && MUS.unlocked && !MUS.muted && !MUS.hidden && !MUS.paused) return;
     c.suspend();
   }
-  (function () { var b = document.getElementById('sndbtn'); if (!b) return; setMuted(MUS.muted); b.addEventListener('click', function () { MUS.unlocked = true; setMuted(!MUS.muted); b.blur(); }); })();
+  (function () {
+    setMuted(MUS.muted);
+    ['sndbtn', 'coverSnd'].forEach(function (id) {
+      var b = document.getElementById(id); if (!b) return;
+      b.addEventListener('click', function (e) { e.stopPropagation(); MUS.unlocked = true; setMuted(!MUS.muted); b.blur(); });
+    });
+  })();
 
   var typing = false, timer = null, pos = 0, ended = false, autoT = null, cutAt = 0, bgCur = null, cutOpen = false, chapHold = false, chapT = null;
   var stats = { car: null, trust: null };
-  var rbOpen = false, rbSel = {}, ttOpen = false;
+  var rbOpen = false, rbSel = {}, ttOpen = false, menuOpen = false;
   /* состояние, которое не лежит в флагах и пересобирается replay(): снимки 🤝/🔧 на старте этапов,
      однократное «гашение» следующего прироста доверия ({наорал}), слова индикаторов на начало главы */
   var snaps = {}, dampPending = false, chap0 = null;
@@ -1192,6 +1200,7 @@
   function showBeat(n, opts) {
     opts = opts || {};
     var b = B[n];
+    noteChapter(n);
     ttBtnSync();
     stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false;
     el.hint.classList.remove('on'); el.cHint.classList.remove('on');
@@ -1501,13 +1510,13 @@
   }
   (function () { var b = document.getElementById('backbtn'); if (b) b.addEventListener('click', function () { back(); b.blur(); }); })();
   function go() {                                   // следующая реплика без «дописывания»
-    if (ended || rbOpen || ttOpen) return;
+    if (ended || rbOpen || ttOpen || menuOpen) return;
     var n = nextVisible(i);
     if (n >= B.length) { showEnd(); return; }
     hist.push({ i: i, f: entryF }); i = n; entryF = JSON.stringify(flags); backSync(); save(); showBeat(i);
   }
   function advance() {
-    if (ended || rbOpen || ttOpen || mode === 'choice') return;
+    if (ended || rbOpen || ttOpen || menuOpen || mode === 'choice') return;
     if (mode === 'cut' && chapHold) {               // карточка главы: тап не сразу
       if (performance.now() - cutAt < 700) return;
       chapHold = false; go(); return;
@@ -1524,6 +1533,7 @@
     var ek = endKey(), nm = END_NAMES[ek];
     $('endKick').textContent = nm ? nm[0] : 'Конец'; $('endTitle').textContent = nm ? nm[1] : 'Путь пройден';
     el.sr.textContent = nm ? nm[0] + '. ' + nm[1] + '.' : 'Конец.';
+    prog.done = true; saveProg();
     ended = true; el.cShown.textContent = ''; el.cRest.textContent = ''; el.end.hidden = false; el.scrHint.classList.remove('on'); el.hint.classList.remove('on'); el.cHint.classList.remove('on'); clear();
     try { el.endBtn.focus({ preventScroll: true }); } catch (e) {}
   }
@@ -1743,10 +1753,12 @@
 
   /* ---------- ввод ---------- */
   el.stage.addEventListener('click', function (e) {
-    if (e.target.closest && (e.target.closest('#roadbook') || e.target.closest('#ttbtn') || e.target.closest('#tt') || e.target.closest('#end') || e.target.closest('#choice') || e.target.closest('#rb'))) return;
+    if (e.target.closest && (e.target.closest('#cover') || e.target.closest('#toc') || e.target.closest('#menubtn') || e.target.closest('#roadbook') || e.target.closest('#ttbtn') || e.target.closest('#tt') || e.target.closest('#end') || e.target.closest('#choice') || e.target.closest('#rb'))) return;
     advance();
   });
   document.addEventListener('keydown', function (e) {
+    if (menuOpen) { menuKey(e); return; }
+    if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen && !ttOpen) { e.preventDefault(); openToc('game'); return; }
     if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
     if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { e.preventDefault(); openTT(); return; }
     if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
@@ -1767,7 +1779,142 @@
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); advance(); }
   });
   el.endBtn.addEventListener('click', restart);
+  $('endToc').addEventListener('click', function (e) { e.stopPropagation(); openToc('end'); });
   document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+
+  /* ---------- прогресс по главам, обложка и оглавление (экраны для игрока) ----------
+     Прогресс хранится отдельно от сохранения: «Начать игру» стирает место в сюжете, но не открытые главы.
+     На входе в каждую главу запоминаем решения игрока (flags) — по ним глава открывается из оглавления с прежними последствиями. */
+  var PROG_KEY = 'put.prog.v1';
+  function loadProg() { try { var v = JSON.parse(localStorage.getItem(PROG_KEY)); if (v && v.ch) return v; } catch (e) {} return { ch: {}, done: false }; }
+  var prog = loadProg();
+  function saveProg() { try { localStorage.setItem(PROG_KEY, JSON.stringify(prog)); } catch (e) {} }
+  var CHAP_IDX = { 1: 0 };
+  B.forEach(function (b, n) { if (b.kind === 'chapter') CHAP_IDX[b.n] = n; });
+  var CHAP_N = Object.keys(CHAP_IDX).map(Number).sort(function (a, b) { return a - b; });
+  var CHAP_INFO = {                                   // название берём из маршрутного листа; подпись — без спойлеров
+    1: 'СУ-7 «Кузнечное». Ночь', 2: 'Декабрь — февраль', 3: 'Первые этапы сезона',
+    4: 'Этап «Печоры»', 5: 'Горный край и «Урал»', 6: 'Финал сезона · 6–7 ноября'
+  };
+  function chapTitle(n) { var t = (S.chapters[n - 1] || {}).title || ''; var k = t.indexOf(' · '); return k < 0 ? t : t.slice(k + 3); }
+  function chapOf(idx) { var r = 1; CHAP_N.forEach(function (n) { if (CHAP_IDX[n] <= idx) r = n; }); return r; }
+  function noteChapter(n) {
+    var c = n === 0 ? 1 : (B[n] && B[n].kind === 'chapter' ? B[n].n : 0); if (!c) return;
+    prog.ch[c] = c === 1 ? '{}' : JSON.stringify(flags); saveProg();
+  }
+  function chapOpen(n) { return n === 1 || prog.ch[n] != null; }
+
+  var tocFrom = null, newArm = null;
+  function closeMenus() {
+    menuOpen = false; tocFrom = null; clearTimeout(newArm);
+    $('cover').hidden = true; $('toc').hidden = true; el.frame.classList.remove('menu-on');
+    try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+  }
+  function focusIn(root, sel) { var t = root.querySelector(sel); if (t) { try { t.focus({ preventScroll: true }); } catch (e) {} } }
+
+  /* обложка: фон и эффекты — из игрового слоя; игра под ней не стартует, пока игрок не выберет пункт */
+  var coverSave = null;
+  function openCover() {
+    menuOpen = true; tocFrom = null;
+    coverSave = params.has('fresh') ? null : load();
+    if (coverSave && !(coverSave.i > 0)) coverSave = null;
+    var cont = $('cvContinue'); cont.hidden = !coverSave;
+    if (coverSave) { var cn = chapOf(coverSave.i); $('cvContinueNote').textContent = 'Глава ' + cn; }
+    var nw = $('cvNew'); nw.firstChild.textContent = 'Начать игру'; nw.classList.remove('arm');
+    $('cvToc').hidden = false;
+    el.frame.classList.add('menu-on'); $('cover').hidden = false; $('toc').hidden = true;
+    applyProps({ bg: 'bg11', music: 'line_lock' }, false);
+    el.sr.textContent = 'Путь. Визуальная новелла о ралли. Главное меню.';
+    focusIn($('cover'), coverSave ? '#cvContinue' : '#cvNew');
+  }
+  function resumeSaved() {                              // «Продолжить»: поднять игру ровно с места сохранения
+    var sv = coverSave || load(); if (!sv) return startNew();
+    closeMenus();
+    flags = sv.flags || {};
+    RB_GROUPS.forEach(function (g) { if (flags[g.key]) selectOpt(g.key, flags[g.key]); });
+    var st = Math.min(sv.i, B.length - 1);
+    replay(st - 1);
+    if (!visible(st)) { st = nextVisible(st); replay(st - 1); }
+    i = st; lastName = null; hist = []; entryF = JSON.stringify(flags); backSync();
+    showBeat(i, { force: true });
+  }
+  function startNew() { closeMenus(); restart(); }
+
+  function openToc(from) {
+    tocFrom = from; menuOpen = true;
+    closeRb(); closeTT();
+    buildToc(from);
+    el.frame.classList.add('menu-on'); $('toc').hidden = false; if (from === 'cover') $('cover').hidden = true;
+    $('toc').scrollTop = 0;
+    focusIn($('toc'), '.toc-card.cur:not(:disabled), .toc-card:not(:disabled)');
+  }
+  function closeToc() {                                 // «Назад»: к обложке или обратно в игру
+    var from = tocFrom; $('toc').hidden = true;
+    if (from === 'cover') { tocFrom = null; $('cover').hidden = false; focusIn($('cover'), coverSave ? '#cvContinue' : '#cvNew'); return; }
+    closeMenus();
+  }
+  var LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  var TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  function buildToc(from) {
+    var grid = $('tocGrid'); grid.innerHTML = '';
+    var inGame = from === 'game' || (from === 'cover' && coverSave), here = from === 'game' ? chapOf(i) : (from === 'cover' && coverSave ? chapOf(coverSave.i) : 0);
+    var top = 1; CHAP_N.forEach(function (n) { if (chapOpen(n)) top = Math.max(top, n); });
+    CHAP_N.forEach(function (n) {
+      var open = chapOpen(n), cur = inGame && n === here;
+      var done = open && !cur && (prog.done || n < top);
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'toc-card' + (cur ? ' cur' : '') + (done ? ' done' : '');
+      b.style.backgroundImage = 'url(assets/toc/ch' + n + '.webp)';
+      var tag = !open ? '<span class="toc-tag">' + LOCK + 'Закрыта</span>' : cur ? '<span class="toc-tag">Вы здесь</span>' : done ? '<span class="toc-tag">' + TICK + 'Пройдена</span>' : '';
+      b.innerHTML = tag + '<span class="toc-n">Глава ' + n + '</span><span class="toc-t"></span><span class="toc-d"></span>';
+      b.querySelector('.toc-t').textContent = chapTitle(n);
+      b.querySelector('.toc-d').textContent = open ? CHAP_INFO[n] || '' : 'Откроется по ходу сюжета';
+      b.setAttribute('aria-label', 'Глава ' + n + '. ' + chapTitle(n) + '. ' + (!open ? 'Закрыта' : cur ? 'Вы здесь' : done ? 'Пройдена' : 'Открыта'));
+      if (!open) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
+      else b.addEventListener('click', function (e) { e.stopPropagation(); enterChapter(n); });
+      grid.appendChild(b);
+    });
+  }
+  function enterChapter(n) {                            // начать главу с её начала и с решениями, принятыми до неё
+    var idx = CHAP_IDX[n], snap = n === 1 ? '{}' : prog.ch[n];
+    if (idx == null || snap == null) return;
+    closeMenus();
+    flags = JSON.parse(snap);
+    RB_GROUPS.forEach(function (g) { if (flags[g.key]) selectOpt(g.key, flags[g.key]); });
+    ended = false; el.end.hidden = true;
+    stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false; hideScreen();
+    closeCut(true); el.choice.hidden = true; el.dialog.classList.remove('away');
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
+    replay(idx - 1);
+    i = idx; lastName = null; hist = []; entryF = JSON.stringify(flags); backSync(); save();
+    showBeat(i, { force: true });
+  }
+  function menuKey(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code === 'KeyS') { MUS.unlocked = true; setMuted(!MUS.muted); return; }
+    var toc = !$('toc').hidden;
+    if (e.key === 'Escape' && toc) { e.preventDefault(); closeToc(); return; }
+    var root = toc ? $('toc') : $('cover'), list = Array.prototype.slice.call(root.querySelectorAll(toc ? '.toc-card:not(:disabled), .toc-back' : '.cv-btn:not([hidden])'));
+    if (!list.length) return;
+    var k = list.indexOf(document.activeElement);
+    var fwd = e.key === 'ArrowDown' || e.key === 'ArrowRight', bwd = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
+    if (fwd || bwd) { e.preventDefault(); list[k < 0 ? 0 : (k + (fwd ? 1 : list.length - 1)) % list.length].focus(); }
+  }
+  $('menubtn').addEventListener('click', function (e) { e.stopPropagation(); openToc('game'); $('menubtn').blur(); });
+  $('tocBack').addEventListener('click', function (e) { e.stopPropagation(); closeToc(); });
+  $('cvContinue').addEventListener('click', function (e) { e.stopPropagation(); resumeSaved(); });
+  $('cvToc').addEventListener('click', function (e) { e.stopPropagation(); openToc('cover'); });
+  $('cvNew').addEventListener('click', function (e) {   // при сохранённой игре — подтверждение вторым нажатием
+    e.stopPropagation();
+    var nw = $('cvNew');
+    if (coverSave && !nw.classList.contains('arm')) {
+      nw.classList.add('arm'); nw.firstChild.textContent = 'Точно начать заново?';
+      clearTimeout(newArm); newArm = setTimeout(function () { nw.classList.remove('arm'); nw.firstChild.textContent = 'Начать игру'; }, 3500);
+      return;
+    }
+    startNew();
+  });
 
   /* ---------- старт ---------- */
   function sceneStart(id) { for (var n = 0; n < B.length; n++) if (B[n].scene === id) return n; return -1; }
@@ -1782,6 +1929,9 @@
   RB_GROUPS.forEach(function (g) {                                      // развилки, заданные в адресе: доставить и сопутствующие флаги варианта
     if (flags[g.key]) selectOpt(g.key, flags[g.key]);
   });
+  var useCover = !(params.has('s') || params.has('b') || params.has('end') || params.has('f') || params.has('k') || params.has('nocover'));
+  if (useCover) { flags = {}; openCover(); }                           // с обложки: игра поднимается по выбору игрока («Продолжить» / «Начать» / глава из оглавления)
+  else {
   if (start > 0) replay(start - 1);                                    // условия показа зависят от состояния — восстановить его до проверки
   if (!visible(start)) { start = nextVisible(start); replay(start - 1); }
   if (params.has('end')) {
@@ -1793,11 +1943,12 @@
     replay(i - 1);
     showBeat(i, { force: true, instant: params.has('b') || params.has('s') });
   }
+  }
 
   /* фоны подгружаем заранее, чтобы смена кадра не мигала */
   setTimeout(function () { Object.keys(S.bgs).forEach(function (k) { var im = new Image(); im.src = S.bgs[k].src; }); }, 600);
 
-  window.__vn = {
+  window.__vn = { prog: function () { return prog; }, enterChapter: enterChapter, openToc: openToc, chapIdx: CHAP_IDX,
     music: function () { var o = { want: MUS.want, unlocked: MUS.unlocked, muted: MUS.muted, hidden: MUS.hidden, paused: MUS.paused, ctx: MUS.ctx && MUS.ctx.state, tracks: {} }; Object.keys(MUS.trk).forEach(function (k) { var t = MUS.trk[k]; o.tracks[k] = t.el ? { fallback: true, paused: t.el.paused, vol: +t.el.volume.toFixed(3) } : { ready: !!t.buf, started: !!t.src, gain: +t.gain.gain.value.toFixed(3) }; }); return o; }, bg: function (k) { setBg(k, true); }, jump: jumpTo, rbSel: rbSel, flags: function () { return flags; }, stats: function () { return stats; }, index: function () { return i; }, total: B.length,
                   derived: function () { return derived(); }, snaps: function () { return snaps; },
                   protocol: function () { return Array.prototype.map.call(el.protoBody.querySelectorAll('tr'), function (r) { return Array.prototype.map.call(r.children, function (c) { return c.textContent; }); }); },
