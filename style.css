@@ -83,15 +83,26 @@ body { position: fixed; inset: 0; }
 }
 .hud-l { grid-column: 1; min-width: 0; justify-self: start; max-width: 100%; display: flex; flex-direction: column; gap: calc(14 * var(--u)); position: relative;
          --ind-x: calc(22 * var(--u)); }                  /* отступ индикаторов = ширина красной точки + зазор: левый край колонки совпадает с левым краем названия места */
-/* светлые фоны (список LIGHT_BG в main.js): за левой колонкой тёмная плашка в общем оформлении, чтобы подписи и деления читались */
-.hud-l::before {
-  content: ''; position: absolute; z-index: -1; pointer-events: none;
-  inset: calc(-14 * var(--u)) calc(-24 * var(--u)) calc(-18 * var(--u)) calc(-22 * var(--u));
-  background: rgba(12, 12, 14, .8); border: 1px solid var(--panel-line); border-radius: calc(14 * var(--u));
-  box-shadow: 0 calc(10 * var(--u)) calc(30 * var(--u)) rgba(0, 0, 0, .3);
-  opacity: 0; transition: opacity .45s ease;
-}
-.frame.light-bg .hud-l::before { opacity: 1; }
+/* светлые фоны (списки INK_DARK и SHADE_BG в main.js) */
+.hud-l::before { content: ''; position: absolute; z-index: -1; pointer-events: none; inset: calc(-40 * var(--u)) calc(-60 * var(--u)) calc(-50 * var(--u)) calc(-70 * var(--u));
+                 background: radial-gradient(closest-side, rgba(8, 8, 12, .6), rgba(8, 8, 12, 0)); opacity: 0; transition: opacity .45s ease; }
+.frame.shade-bg .hud-l::before { opacity: 1; }                       /* среднетоновый фон: мягкое затемнение за колонкой, без плашки */
+.frame.shade-bg .hud-l { text-shadow: 0 1px 3px rgba(0, 0, 0, .8), 0 0 10px rgba(0, 0, 0, .65), 0 0 22px rgba(0, 0, 0, .45); }
+/* очень светлый фон: тёмный текст и тёмные деления, верхняя подложка выключена (цвета берутся из переменных, их переопределяем в колонке) */
+.scrim-top { transition: opacity .45s ease; }
+.frame.ink-dark .scrim-top { opacity: 0; }
+.frame.ink-dark .hud-l { --ink: #17150f; --ink-2: rgba(23, 21, 15, .82); --amber: #9a5000; color: #17150f; }
+.frame.ink-dark .inds { border-top-color: rgba(23, 21, 15, .28); }
+.frame.ink-dark .ind-seg i { border-color: rgba(23, 21, 15, .55); }
+.frame.ink-dark .ind-seg i.on, .frame.ink-dark .ind-seg.full i.on { background: #9a5000; border-color: #9a5000; box-shadow: none; }
+.frame.ink-dark .ind-mark { color: #fff; }
+.frame.ink-dark .ind-mark[data-dir="down"] { background: #d6381c; }
+.frame.ink-dark .ind-seg i.blink { animation-name: segblinkd; }
+.frame.ink-dark .ind-seg i.blink-down { animation-name: segdownd; }
+.frame.ink-dark .ind.flash-up .ind-val, .frame.ink-dark .ind.flash-down .ind-val { animation-name: indvald; }
+@keyframes segblinkd { 0% { transform: scale(1.9, 1.8); background: #3d1f00; border-color: #3d1f00; box-shadow: 0 0 calc(10 * var(--u)) calc(3 * var(--u)) rgba(154, 80, 0, .6); } 35% { transform: none; background: #7a3f00; } 100% { transform: none; box-shadow: none; } }
+@keyframes segdownd { 0% { transform: scale(1.5, 1.6); background: #d6381c; border-color: #d6381c; box-shadow: 0 0 calc(10 * var(--u)) calc(2 * var(--u)) rgba(214, 56, 28, .6); } 35% { transform: none; background: rgba(214, 56, 28, .5); } 100% { transform: none; box-shadow: none; } }
+@keyframes indvald { 0% { color: #2a1400; text-shadow: 0 0 calc(8 * var(--u)) rgba(154, 80, 0, .6); } 100% { color: #9a5000; text-shadow: 0 0 0 transparent; } }
 .frame.inds-big .hud-l { position: static; }              /* разбор онборда: колонки индикаторов нет, плашка не нужна */
 .frame.inds-big .hud-l::before { display: none; }
 .loc {                                            /* две строки: название места, под ним уточнение (СУ, время, состояние); высота всегда на две строки — шапка не прыгает */
@@ -565,7 +576,6 @@ body { position: fixed; inset: 0; }
     padding-left: max(14px, var(--safe-l)); padding-right: max(12px, var(--safe-r));
   }
   .hud-l { gap: 7px; --ind-x: 14px; }                    /* точка 8 px + зазор 6 px */
-  .hud-l::before { inset: -6px -10px -8px -8px; border-radius: 10px; }
   .inds .ind-r { height: max(15px, 18 * var(--u)); }
   .loc { font-size: max(11px, 11 * var(--u)); column-gap: 6px; line-height: 1.2; min-height: 30px; }
   .loc-km { margin-top: 1px; font-size: .82em; line-height: 1.15; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }   /* длинное уточнение уходит на вторую строку: высоту шапки всё равно задаёт кнопка 44 px */
