@@ -1527,7 +1527,7 @@
     i = h.i; lastName = null; backSync(); save();
     showBeat(i, { force: true, instant: true });
   }
-  (function () { var b = document.getElementById('backbtn'); if (b) b.addEventListener('click', function () { back(); b.blur(); }); })();
+  (function () { var b = document.getElementById('backbtn'); if (b) b.addEventListener('click', function (e) { e.stopPropagation(); back(); b.blur(); }); })();
   function go() {                                   // следующая реплика без «дописывания»
     if (ended || rbOpen || ttOpen || menuOpen) return;
     var n = nextVisible(i);
