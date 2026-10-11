@@ -348,6 +348,8 @@
     locTitle = (h.pre ? h.pre + ' ' : '') + h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
     document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
+  // светлые фоны: средняя яркость левого верхнего угла (где шапка) ≥ 95 из 255 — за колонкой места и индикаторов рисуется тёмная плашка
+  var LIGHT_BG = ['bg14', 'bg22', 'bg24', 'bg31', 'bg33', 'bg34', 'bg35', 'bg37', 'bg38', 'bg43', 'bg44', 'bg45b', 'bg47a', 'bg47b', 'bg57', 'bg61', 'bg64'];
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null }, markT = { car: null, trust: null };
   function segN(k, word) {                           // сколько из 10 делений горит, если число неизвестно (слово поставлено вручную): «кончилась» / «Нет» — 0
     if (S.zeroWords.indexOf(word) >= 0 || S.noneWords.indexOf(word) >= 0) return 0;
@@ -1154,6 +1156,7 @@
     act = ni; bgCur = key;
     fxSet(key);
     el.frame.setAttribute('data-bg', key);
+    el.frame.classList.toggle('light-bg', LIGHT_BG.indexOf(key) >= 0);
     el.bgLabel.setAttribute('aria-label', d.label);
   }
   function applyProps(b, animate) {
