@@ -17,8 +17,8 @@
     bgA: $('bgA'), bgB: $('bgB'), bgLabel: $('bgLabel'),
     locPre: $('locPre'), locName: $('locName'), locKm: $('locKm'),
     portraits: {},
-    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas'), seg: $('indCarSeg'), mark: $('indCarMark') },
-           trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas'), seg: $('indTrustSeg'), mark: $('indTrustMark') } },
+    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas'), seg: $('indCarSeg'), mark: $('indCarMark'), val: $('indCarVal') },
+           trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas'), seg: $('indTrustSeg'), mark: $('indTrustMark'), val: $('indTrustVal') } },
     proto: $('proto'), protoTitle: $('protoTitle'), protoSub: $('protoSub'), protoBody: $('protoBody'), protoSheet: document.querySelector('.proto-sheet'), protoGap: $('protoGap'), scrHint: $('scrHint')
   };
 
@@ -376,16 +376,17 @@
       t.seg.classList.toggle('zero', n === 0 && zero);
       t.seg.classList.toggle('none', n === 0 && isNone);
     }
-    // изменение значения: стрелка ▲/▼ у подписи и короткая вспышка названия (числа игроку не показываются — только направление)
+    // значение «N/10» справа от подписи; при изменении — вспышка значения и чип «+1» / «−1» на ~2,4 с
+    if (t.val) t.val.textContent = n + '/10';
     clearTimeout(markT[k]);
     var md = (animate && !STATIC && old != null && n !== old) ? (n > old ? 'up' : 'down') : null;
     t.box.classList.remove('flash-up', 'flash-down');
-    if (t.mark) t.mark.removeAttribute('data-dir');
+    if (t.mark) { t.mark.removeAttribute('data-dir'); t.mark.textContent = ''; }
     if (md) {
       void t.box.offsetWidth;
       t.box.classList.add('flash-' + md);
-      if (t.mark) t.mark.setAttribute('data-dir', md);
-      markT[k] = setTimeout(function () { t.box.classList.remove('flash-up', 'flash-down'); if (t.mark) t.mark.removeAttribute('data-dir'); }, 2400);
+      if (t.mark) { t.mark.textContent = (md === 'up' ? '+' : '\u2212') + Math.abs(n - old); t.mark.setAttribute('data-dir', md); }
+      markT[k] = setTimeout(function () { t.box.classList.remove('flash-up', 'flash-down'); if (t.mark) { t.mark.removeAttribute('data-dir'); t.mark.textContent = ''; } }, 2400);
     }
     t.box.setAttribute('aria-label', s.name + ' ' + s.word);
     clearTimeout(dirT[k]); t.word.removeAttribute('data-dir');

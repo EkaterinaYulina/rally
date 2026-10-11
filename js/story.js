@@ -49,7 +49,7 @@ var EG = { crash6: { eq: 0 }, rank5: { gte: 3 } };
 var EV = { crash6: { eq: 1 } };
 function W(base, extra) { return Object.assign({}, base, extra || {}); }
 var CH6 = [
-    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Эпилог: Финал', music: 'cold_focus' },
+    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Финал', music: 'cold_focus' },
 
     /* ---------- 6.1 Админпроверка ---------- */
     { scene: '6.1', bg: 'bg61', big: false, chapStart: true,
@@ -445,7 +445,7 @@ window.STORY = {
   },
   /* маршрутный лист: главы и сцены (id совпадает с меткой scene в битах) */
   chapters: [
-    { title: 'Глава 1 · Пролог: Крах', scenes: [
+    { title: 'Глава 1 · Крах', scenes: [
       { id: '1.1', title: 'Старт СУ-7 «Кузнечное». Ночь' },
       { id: '1.2', title: 'На спецучастке' },
       { id: '1.3', title: 'После' },
@@ -486,7 +486,7 @@ window.STORY = {
       { id: '5.6', title: 'Машина готова' },
       { id: '5.7', title: 'Этап 5 «Урал»' },
       { id: '5.8', title: 'Разбор онборда' } ] },
-    { title: 'Глава 6 · Эпилог: Финал', scenes: [
+    { title: 'Глава 6 · Финал', scenes: [
       { id: '6.1', title: 'Админпроверка' },
       { id: '6.2', title: 'Ознакомление «Кузнечного»' },
       { id: '6.3', title: 'Разговор. Гостиница' },
