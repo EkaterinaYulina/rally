@@ -23,24 +23,29 @@
 
   <!-- Шапка: место и длина СУ, индикаторы, «Маршрутный лист» -->
   <header class="hud" id="hud">
-    <div class="loc" id="loc">
-      <span class="loc-dot" aria-hidden="true"></span>
-      <span class="loc-txt"><span class="loc-rally" id="locPre">Ралли</span> <span class="loc-name" id="locName"></span></span>
-      <span class="loc-km" id="locKm"></span>
-    </div>
-
-    <div class="inds">
-      <div class="ind" id="indCar" role="status">
-        <span class="ind-seg" id="indCarSeg" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
-        <span class="ind-name" id="indCarName"></span>
-        <span class="ind-word" id="indCarWord"></span>
-        <span class="ind-was" id="indCarWas"></span>
+    <!-- левая колонка: место и СУ, под ним индикаторы -->
+    <div class="hud-l">
+      <div class="loc" id="loc">
+        <span class="loc-dot" aria-hidden="true"></span>
+        <span class="loc-txt"><span class="loc-rally" id="locPre">Ралли</span> <span class="loc-name" id="locName"></span></span>
+        <span class="loc-km" id="locKm"></span>
       </div>
-      <div class="ind" id="indTrust" role="status">
-        <span class="ind-seg" id="indTrustSeg" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
-        <span class="ind-name" id="indTrustName"></span>
-        <span class="ind-word" id="indTrustWord"></span>
-        <span class="ind-was" id="indTrustWas"></span>
+
+      <div class="inds">
+        <div class="ind" id="indCar" role="status">
+          <span class="ind-name" id="indCarName"></span>
+          <span class="ind-r" aria-hidden="true"><span class="ind-mark" id="indCarMark"></span><span class="ind-val" id="indCarVal"></span></span>
+          <span class="ind-seg" id="indCarSeg" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="ind-word" id="indCarWord"></span>
+          <span class="ind-was" id="indCarWas"></span>
+        </div>
+        <div class="ind" id="indTrust" role="status">
+          <span class="ind-name" id="indTrustName"></span>
+          <span class="ind-r" aria-hidden="true"><span class="ind-mark" id="indTrustMark"></span><span class="ind-val" id="indTrustVal"></span></span>
+          <span class="ind-seg" id="indTrustSeg" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="ind-word" id="indTrustWord"></span>
+          <span class="ind-was" id="indTrustWas"></span>
+        </div>
       </div>
     </div>
 
