@@ -81,7 +81,19 @@ body { position: fixed; inset: 0; }
   padding-right: max(calc(48 * var(--u)), var(--safe-r));
   font-family: var(--f-head); text-transform: uppercase; white-space: nowrap;
 }
-.hud-l { grid-column: 1; min-width: 0; justify-self: start; max-width: 100%; display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
+.hud-l { grid-column: 1; min-width: 0; justify-self: start; max-width: 100%; display: flex; flex-direction: column; gap: calc(14 * var(--u)); position: relative;
+         --ind-x: calc(22 * var(--u)); }                  /* отступ индикаторов = ширина красной точки + зазор: левый край колонки совпадает с левым краем названия места */
+/* светлые фоны (список LIGHT_BG в main.js): за левой колонкой тёмная плашка в общем оформлении, чтобы подписи и деления читались */
+.hud-l::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  inset: calc(-14 * var(--u)) calc(-24 * var(--u)) calc(-18 * var(--u)) calc(-22 * var(--u));
+  background: rgba(12, 12, 14, .8); border: 1px solid var(--panel-line); border-radius: calc(14 * var(--u));
+  box-shadow: 0 calc(10 * var(--u)) calc(30 * var(--u)) rgba(0, 0, 0, .3);
+  opacity: 0; transition: opacity .45s ease;
+}
+.frame.light-bg .hud-l::before { opacity: 1; }
+.frame.inds-big .hud-l { position: static; }              /* разбор онборда: колонки индикаторов нет, плашка не нужна */
+.frame.inds-big .hud-l::before { display: none; }
 .loc {                                            /* две строки: название места, под ним уточнение (СУ, время, состояние); высота всегда на две строки — шапка не прыгает */
   justify-self: start; max-width: 100%; min-width: 0; min-height: calc(46 * var(--u));
   display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: center; column-gap: calc(10 * var(--u));
@@ -102,7 +114,7 @@ body { position: fixed; inset: 0; }
 .clk-c { font-style: normal; opacity: .6; }
 
 /* индикаторы — колонка под блоком места: подпись слева, стрелка изменения справа, ниже десять делений */
-.inds { display: flex; flex-direction: column; gap: calc(14 * var(--u)); width: calc(240 * var(--u)); max-width: 100%; padding-top: calc(14 * var(--u)); border-top: 1px solid rgba(236, 230, 214, .16); }
+.inds { display: flex; flex-direction: column; gap: calc(14 * var(--u)); margin-left: var(--ind-x); width: calc(240 * var(--u)); max-width: calc(100% - var(--ind-x)); padding-top: calc(14 * var(--u)); border-top: 1px solid rgba(236, 230, 214, .16); }
 .inds:not(:has(.ind:not(.gone))) { display: none; }                  /* обоих индикаторов нет — колонка со своей линией тоже не нужна */
 .ind  { font-size: calc(18 * var(--u)); position: relative; }
 /* индикатор появился (Нет → значение): подсвечивается вся плашка */
@@ -123,7 +135,7 @@ body { position: fixed; inset: 0; }
 .ind-name { font-weight: 300; }
 .inds .ind { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; row-gap: calc(7 * var(--u)); line-height: 1.15; white-space: nowrap; }
 .inds .ind-name { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.inds .ind-r { grid-area: 1 / 2; display: flex; align-items: center; gap: calc(8 * var(--u)); }
+.inds .ind-r { grid-area: 1 / 2; display: flex; align-items: center; justify-content: flex-end; gap: calc(8 * var(--u)); height: calc(18 * var(--u)); }   /* высота зарезервирована под чип: при «+1» строки не прыгают */
 .inds .ind-seg  { grid-area: 2 / 1 / 3 / 3; }
 .inds .ind-was  { grid-area: 3 / 1 / 4 / 3; }
 .inds .ind-name { font-family: var(--f-mono); font-weight: 500; font-size: calc(12.6 * var(--u)); letter-spacing: -.01em; color: var(--ink-2); }   /* тот же шрифт и размер, что у строки со временем */
@@ -552,7 +564,9 @@ body { position: fixed; inset: 0; }
     grid-template-columns: minmax(0, 1fr) auto;          /* на телефоне слева место и под ним индикаторы, справа кнопки: подпись места уступает и обрезается многоточием */
     padding-left: max(14px, var(--safe-l)); padding-right: max(12px, var(--safe-r));
   }
-  .hud-l { gap: 7px; }
+  .hud-l { gap: 7px; --ind-x: 14px; }                    /* точка 8 px + зазор 6 px */
+  .hud-l::before { inset: -6px -10px -8px -8px; border-radius: 10px; }
+  .inds .ind-r { height: max(15px, 18 * var(--u)); }
   .loc { font-size: max(11px, 11 * var(--u)); column-gap: 6px; line-height: 1.2; min-height: 30px; }
   .loc-km { margin-top: 1px; font-size: .82em; line-height: 1.15; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }   /* длинное уточнение уходит на вторую строку: высоту шапки всё равно задаёт кнопка 44 px */
   .loc-dot { width: 8px; height: 8px; }
