@@ -17,8 +17,8 @@
     bgA: $('bgA'), bgB: $('bgB'), bgLabel: $('bgLabel'),
     locPre: $('locPre'), locName: $('locName'), locKm: $('locKm'),
     portraits: {},
-    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas'), seg: $('indCarSeg') },
-           trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas'), seg: $('indTrustSeg') } },
+    ind: { car: { box: $('indCar'), name: $('indCarName'), word: $('indCarWord'), was: $('indCarWas'), seg: $('indCarSeg'), mark: $('indCarMark') },
+           trust: { box: $('indTrust'), name: $('indTrustName'), word: $('indTrustWord'), was: $('indTrustWas'), seg: $('indTrustSeg'), mark: $('indTrustMark') } },
     proto: $('proto'), protoTitle: $('protoTitle'), protoSub: $('protoSub'), protoBody: $('protoBody'), protoSheet: document.querySelector('.proto-sheet'), protoGap: $('protoGap'), scrHint: $('scrHint')
   };
 
@@ -348,7 +348,7 @@
     locTitle = (h.pre ? h.pre + ' ' : '') + h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
     document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
-  var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null };
+  var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null }, markT = { car: null, trust: null };
   function segN(k, word) {                           // сколько из 10 делений горит, если число неизвестно (слово поставлено вручную): «кончилась» / «Нет» — 0
     if (S.zeroWords.indexOf(word) >= 0 || S.noneWords.indexOf(word) >= 0) return 0;
     var r = S.bandRep[k][word]; return r == null ? 0 : r;
@@ -375,6 +375,17 @@
       t.seg.classList.toggle('full', n >= 9);
       t.seg.classList.toggle('zero', n === 0 && zero);
       t.seg.classList.toggle('none', n === 0 && isNone);
+    }
+    // изменение значения: стрелка ▲/▼ у подписи и короткая вспышка названия (числа игроку не показываются — только направление)
+    clearTimeout(markT[k]);
+    var md = (animate && !STATIC && old != null && n !== old) ? (n > old ? 'up' : 'down') : null;
+    t.box.classList.remove('flash-up', 'flash-down');
+    if (t.mark) t.mark.removeAttribute('data-dir');
+    if (md) {
+      void t.box.offsetWidth;
+      t.box.classList.add('flash-' + md);
+      if (t.mark) t.mark.setAttribute('data-dir', md);
+      markT[k] = setTimeout(function () { t.box.classList.remove('flash-up', 'flash-down'); if (t.mark) t.mark.removeAttribute('data-dir'); }, 2400);
     }
     t.box.setAttribute('aria-label', s.name + ' ' + s.word);
     clearTimeout(dirT[k]); t.word.removeAttribute('data-dir');
