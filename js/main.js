@@ -1,4 +1,4 @@
-/* «Путь» — пролог и главы 2–6: реплики, портреты, шапка, фоны, выбор, числа индикаторов, карточка главы, протокол этапа (модель сезона), автосохранение. */
+/* «Занос» — пролог и главы 2–6: реплики, портреты, шапка, фоны, выбор, числа индикаторов, карточка главы, протокол этапа (модель сезона), автосохранение. */
 (function () {
   'use strict';
   var S = window.STORY, B = S.beats;
@@ -1777,7 +1777,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (menuOpen) { menuKey(e); return; }
-    if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen && !ttOpen) { e.preventDefault(); openToc('game'); return; }
+    if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen && !ttOpen) { e.preventDefault(); openCoverFromGame(); return; }
     if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
     if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { e.preventDefault(); openTT(); return; }
     if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
@@ -1803,7 +1803,7 @@
 
 
   /* ---------- прогресс по главам, обложка и оглавление (экраны для игрока) ----------
-     Прогресс хранится отдельно от сохранения: «Начать игру» стирает место в сюжете, но не открытые главы.
+     Прогресс хранится отдельно от сохранения: «Новая игра» стирает место в сюжете, но не открытые главы.
      На входе в каждую главу запоминаем решения игрока (flags) — по ним глава открывается из оглавления с прежними последствиями. */
   var PROG_KEY = 'put.prog.v1';
   function loadProg() { try { var v = JSON.parse(localStorage.getItem(PROG_KEY)); if (v && v.ch) return v; } catch (e) {} return { ch: {}, done: false }; }
@@ -1840,16 +1840,25 @@
     if (coverSave && !(coverSave.i > 0)) coverSave = null;
     var cont = $('cvContinue'); cont.hidden = !coverSave;
     if (coverSave) { var cn = chapOf(coverSave.i); $('cvContinueNote').textContent = 'Глава ' + cn; }
-    var nw = $('cvNew'); nw.firstChild.textContent = 'Начать игру'; nw.classList.remove('arm');
+    var nw = $('cvNew'); nw.firstChild.textContent = 'Новая игра'; nw.classList.remove('arm');
     $('cvToc').hidden = false;
     el.frame.classList.add('menu-on'); $('cover').hidden = false; $('toc').hidden = true;
     applyProps({ bg: 'bg11', music: 'line_lock' }, false);
-    el.sr.textContent = 'Путь. Визуальная новелла о ралли. Главное меню.';
+    el.sr.textContent = 'Занос. Визуальная новелла о ралли. Главное меню.';
     focusIn($('cover'), coverSave ? '#cvContinue' : '#cvNew');
+  }
+  function stopStage() {                                // остановить сцену под меню: печать, автопереход, выбор, портреты
+    ended = false; el.end.hidden = true;
+    stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false; hideScreen();
+    closeCut(true); el.choice.hidden = true; el.dialog.classList.remove('away');
+    Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
+  }
+  function openCoverFromGame() {                        // кнопка в шапке и клавиша O: назад на обложку, место в сюжете сохраняем
+    closeRb(); closeTT(); save(); stopStage(); openCover();
   }
   function resumeSaved() {                              // «Продолжить»: поднять игру ровно с места сохранения
     var sv = coverSave || load(); if (!sv) return startNew();
-    closeMenus();
+    closeMenus(); stopStage();
     flags = sv.flags || {};
     RB_GROUPS.forEach(function (g) { if (flags[g.key]) selectOpt(g.key, flags[g.key]); });
     var st = Math.min(sv.i, B.length - 1);
@@ -1920,7 +1929,7 @@
     var fwd = e.key === 'ArrowDown' || e.key === 'ArrowRight', bwd = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
     if (fwd || bwd) { e.preventDefault(); list[k < 0 ? 0 : (k + (fwd ? 1 : list.length - 1)) % list.length].focus(); }
   }
-  $('menubtn').addEventListener('click', function (e) { e.stopPropagation(); openToc('game'); $('menubtn').blur(); });
+  $('menubtn').addEventListener('click', function (e) { e.stopPropagation(); openCoverFromGame(); $('menubtn').blur(); });
   $('tocBack').addEventListener('click', function (e) { e.stopPropagation(); closeToc(); });
   $('cvContinue').addEventListener('click', function (e) { e.stopPropagation(); resumeSaved(); });
   $('cvToc').addEventListener('click', function (e) { e.stopPropagation(); openToc('cover'); });
@@ -1929,7 +1938,7 @@
     var nw = $('cvNew');
     if (coverSave && !nw.classList.contains('arm')) {
       nw.classList.add('arm'); nw.firstChild.textContent = 'Точно начать заново?';
-      clearTimeout(newArm); newArm = setTimeout(function () { nw.classList.remove('arm'); nw.firstChild.textContent = 'Начать игру'; }, 3500);
+      clearTimeout(newArm); newArm = setTimeout(function () { nw.classList.remove('arm'); nw.firstChild.textContent = 'Новая игра'; }, 3500);
       return;
     }
     startNew();

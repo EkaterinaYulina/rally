@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="format-detection" content="telephone=no">
-<title>Путь — визуальная новелла о ралли</title>
+<title>Занос — визуальная новелла о ралли</title>
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <!-- Игровое поле: занимает всю доступную область, на очень широких окнах ограничено 2:1 -->
-<main id="stage" aria-label="Игра «Путь»">
+<main id="stage" aria-label="Игра «Занос»">
 <div class="frame">
 
   <div class="bg" id="bgA"></div>
@@ -50,7 +50,7 @@
     </div>
 
     <div class="hud-btns">
-    <button class="sndbtn" id="menubtn" type="button" aria-label="Оглавление" title="Оглавление (O)">
+    <button class="sndbtn" id="menubtn" type="button" aria-label="Меню" title="Меню (O)">
       <svg class="sndbtn-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h10"/></svg>
     </button>
     <button class="sndbtn backbtn" id="backbtn" type="button" aria-label="Назад" title="Назад (←) — техническая кнопка для вычитки" disabled>
@@ -151,7 +151,7 @@
       <div class="end-title" id="endTitle">Путь пройден</div>
       <div class="end-btns">
         <button class="end-btn" id="endBtn" type="button">Начать сначала</button>
-        <button class="end-btn ghost" id="endToc" type="button">Оглавление</button>
+        <button class="end-btn ghost" id="endToc" type="button">Главы</button>
       </div>
     </div>
   </div>
@@ -165,21 +165,21 @@
     </button>
     <div class="cover-in">
       <div class="cover-kick">Визуальная новелла о ралли</div>
-      <h1 class="cover-title">Путь</h1>
-      <div class="cover-sub">Сезон чемпионата России глазами пилота</div>
+      <h1 class="cover-title">Занос</h1>
+      <div class="cover-sub">Один сезон, одна машина и штурман, которому нужно верить</div>
       <nav class="cover-menu" aria-label="Меню">
         <button class="cv-btn primary" id="cvContinue" type="button" hidden><span>Продолжить</span><i class="cv-note" id="cvContinueNote"></i></button>
-        <button class="cv-btn" id="cvNew" type="button"><span>Начать игру</span></button>
-        <button class="cv-btn" id="cvToc" type="button"><span>Оглавление</span></button>
+        <button class="cv-btn" id="cvNew" type="button"><span>Новая игра</span></button>
+        <button class="cv-btn" id="cvToc" type="button"><span>Главы</span></button>
       </nav>
     </div>
   </section>
 
   <!-- Оглавление: главы игры. Открытые — по прогрессу игрока, закрытые видны, но недоступны -->
-  <section class="toc" id="toc" role="dialog" aria-modal="true" aria-label="Оглавление" hidden>
+  <section class="toc" id="toc" role="dialog" aria-modal="true" aria-label="Главы" hidden>
     <div class="toc-head">
       <button class="toc-back" id="tocBack" type="button">← Назад</button>
-      <h2 class="toc-title">Оглавление</h2>
+      <h2 class="toc-title">Главы</h2>
       <span class="toc-spacer" aria-hidden="true"></span>
     </div>
     <div class="toc-grid" id="tocGrid"></div>
