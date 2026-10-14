@@ -349,11 +349,7 @@
     locTitle = (h.pre ? h.pre + ' ' : '') + h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
     document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
-  // фоны, на которых светлый текст шапки теряется (яркость левого верхнего угла, где шапка):
-  //   INK_DARK — очень светлые (≥ 160 из 255): текст и деления шапки становятся тёмными, верхняя подложка выключена;
-  //   SHADE_BG — среднетоновые (95–150): текст остаётся светлым, но с тенью и мягким затемнением за колонкой
-  var INK_DARK = ['bg14', 'bg43', 'bg47b'];
-  var SHADE_BG = ['bg22', 'bg24', 'bg31', 'bg33', 'bg34', 'bg35', 'bg37', 'bg38', 'bg44', 'bg45b', 'bg47a', 'bg57', 'bg61', 'bg64'];
+  // подложка под шапкой одинаковая на всех фонах (см. .scrim-top и .hud-l::before в style.css): списки светлых фонов убраны, чтобы тень не прыгала между сценами
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null }, markT = { car: null, trust: null };
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
@@ -1156,8 +1152,6 @@
     act = ni; bgCur = key;
     fxSet(key);
     el.frame.setAttribute('data-bg', key);
-    el.frame.classList.toggle('ink-dark', INK_DARK.indexOf(key) >= 0);
-    el.frame.classList.toggle('shade-bg', SHADE_BG.indexOf(key) >= 0);
     el.bgLabel.setAttribute('aria-label', d.label);
   }
   function applyProps(b, animate) {
@@ -1240,6 +1234,7 @@
       el.name.textContent = nm; el.name.classList.add('swap'); lastName = nm;
     }
     el.dialog.classList.toggle('thought', b.kind === 'thought');
+    el.dialog.classList.toggle('say', b.kind === 'say');          // реплика вслух: тире перед текстом
     Object.keys(el.portraits).forEach(function (k) { var on = portraitKey(sp) === k; el.portraits[k].classList.toggle('on', on); el.portraits[k].classList.toggle('say', on && b.kind === 'say'); });
     if (!(b.stat && !opts.instant)) el.sr.textContent = nm + '. ' + b.text;
     typeIn(b, el.shown, el.rest, el.hint, opts);
@@ -1548,9 +1543,9 @@
   /* экран концовки: вместо названия («Концовка Г · Финиш без подиума») — призыв пройти ещё раз; название концовки остаётся в маршрутном листе */
   var END_NAMES = {
     'А': ['Это не единственный финал', 'Как всё могло пойти иначе?'],
-    'Б': ['До золота — один шаг', 'Найди, где потерял секунды'],
-    'Г': ['Подиум был рядом', 'Найди, где ты его упустил'],
-    'В': ['Кювет — не конец сезона', 'Пройди этот финал иначе']
+    'Б': ['До золота — один шаг', 'Сделай другой выбор'],
+    'Г': ['Подиум был рядом', 'Реши иначе — и встань на подиум'],
+    'В': ['Сход — не приговор', 'Пройди сюжет ещё раз']
   };
   function showEnd() {
     var ek = endKey(), nm = END_NAMES[ek];
