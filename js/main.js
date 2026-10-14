@@ -1813,8 +1813,8 @@
   B.forEach(function (b, n) { if (b.kind === 'chapter') CHAP_IDX[b.n] = n; });
   var CHAP_N = Object.keys(CHAP_IDX).map(Number).sort(function (a, b) { return a - b; });
   var CHAP_INFO = {                                   // название берём из маршрутного листа; подпись — без спойлеров
-    1: 'СУ «Кузнечное». Ночь', 2: 'Декабрь — февраль', 3: 'Первые этапы сезона',
-    4: 'Этап «Печоры»', 5: 'Горный край и «Урал»', 6: 'Финал сезона · 6–7 ноября'
+    1: '«Ладожская Дуга» · 7–8 ноября', 2: 'Декабрь — февраль', 3: '«Ильмень» и «Рускеала» · апрель — июнь',
+    4: '«Печоры» · 31 июля — 1 августа', 5: '«Горный край» и «Урал» · август — октябрь', 6: '«Ладожская Дуга» · 6–7 ноября'
   };
   function chapTitle(n) { var t = (S.chapters[n - 1] || {}).title || ''; var k = t.indexOf(' · '); return k < 0 ? t : t.slice(k + 3); }
   function chapOf(idx) { var r = 1; CHAP_N.forEach(function (n) { if (CHAP_IDX[n] <= idx) r = n; }); return r; }
