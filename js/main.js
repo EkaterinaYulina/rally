@@ -1351,7 +1351,7 @@
     var tPre = document.createElement('span'); tPre.className = 'pt-pre'; tPre.textContent = team ? 'Командный зачёт' : fin ? 'Итоговый зачёт' : stand ? 'Общий зачёт' : 'Итоги ралли';
     var tName = document.createElement('span'); tName.className = 'pt-name'; tName.textContent = (team || fin) ? 'сезона' : stand ? 'после ' + (NUMW[b.stage + 1] || (b.stage + 1)) + ' ' + plural(b.stage + 1, 'этапа', 'этапов', 'этапов') : '«' + RALLY_DATA.stages[b.stage] + '»';
     el.protoTitle.appendChild(tPre); el.protoTitle.appendChild(document.createTextNode(' ')); el.protoTitle.appendChild(tName);
-    el.protoSub.textContent = 'Чемпионат России · класс R2 · ' + (team ? 'командный зачёт' : stand ? 'личный зачёт' : RALLY_DATA.dates[b.stage]);
+    el.protoSub.textContent = 'Чемпионат · класс R2 · ' + (team ? 'командный зачёт' : stand ? 'личный зачёт' : RALLY_DATA.dates[b.stage]);
     el.protoBody.innerHTML = '';
     var counters = [], k = 0, T0 = 420, STEP = 55;   // первая строка — после лица листа; шаг между строками
     d.rows.forEach(function (r) {
@@ -1709,15 +1709,15 @@
     var dv = derived(), t = dv.t.slice(), retAt = function (si) { return (si === 2 && dv.ret2 === 1) || (si === 5 && dv.crash6 === 1); };
     var upto = tab === 'st' || tab === 'team' ? Math.max(av.stand, 0) : +tab;
     for (var si = 0; si <= upto; si++) if (t[si] == null && si !== 3 && !retAt(si)) t[si] = RallyModel.alexStageTime(si, stats.trust, stats.car, { choices: {}, flags: [], trust: stats.trust });
-    if (tab === 'team') return { title: ['Командный зачёт', 'сезона'], sub: 'Чемпионат России · класс R2 · командный зачёт', gap: 'Отставание', rows: teamRows(t), stand: true };
+    if (tab === 'team') return { title: ['Командный зачёт', 'сезона'], sub: 'Чемпионат · класс R2 · командный зачёт', gap: 'Отставание', rows: teamRows(t), stand: true };
     if (tab === 'st') {
       var d = standRows({ stage: upto }, t), fin = upto === 5;
       return { title: [fin ? 'Итоговый зачёт' : 'Общий зачёт', fin ? 'сезона' : 'после ' + (NUMW[upto + 1] || (upto + 1)) + ' ' + plural(upto + 1, 'этапа', 'этапов', 'этапов')],
-               sub: 'Чемпионат России · класс R2 · личный зачёт', gap: 'Движение', rows: d.rows, stand: true };
+               sub: 'Чемпионат · класс R2 · личный зачёт', gap: 'Движение', rows: d.rows, stand: true };
     }
     var s = +tab, p = protoRows(s, s === 3 ? null : (retAt(s) ? null : t[s]));
     var rows = s === 3 ? p.rows.filter(function (r) { return !r.alex; }) : p.rows;     // «Горный край»: Алекс не заявлен
-    return { title: ['Итоги ралли', '«' + RALLY_DATA.stages[s] + '»'], sub: 'Чемпионат России · класс R2 · ' + RALLY_DATA.dates[s] + (s === 3 ? ' · наш экипаж не заявлен' : ''), gap: 'Отставание от лидера', rows: rows, stand: false };
+    return { title: ['Итоги ралли', '«' + RALLY_DATA.stages[s] + '»'], sub: 'Чемпионат · класс R2 · ' + RALLY_DATA.dates[s] + (s === 3 ? ' · наш экипаж не заявлен' : ''), gap: 'Отставание от лидера', rows: rows, stand: false };
   }
   function ttRender() {
     var av = ttAvail(), tabs = [];

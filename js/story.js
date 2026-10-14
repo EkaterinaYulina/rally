@@ -49,7 +49,7 @@ var EG = { crash6: { eq: 0 }, rank5: { gte: 3 } };
 var EV = { crash6: { eq: 1 } };
 function W(base, extra) { return Object.assign({}, base, extra || {}); }
 var CH6 = [
-    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Эпилог: Финал', music: 'cold_focus' },
+    { kind: 'chapter', n: 6, kicker: 'Глава 6', title: 'Финал', music: 'cold_focus' },
 
     /* ---------- 6.1 Админпроверка ---------- */
     { scene: '6.1', bg: 'bg61', big: false, chapStart: true,
