@@ -692,7 +692,7 @@ body { position: fixed; inset: 0; }
   margin: 0; font: 800 calc(112 * var(--u))/.95 var(--f-head); text-transform: uppercase; letter-spacing: -.02em; white-space: nowrap;
   color: var(--amber); text-shadow: 0 0 calc(60 * var(--u)) rgba(255, 171, 0, .28);
 }
-.cover-sub { margin: calc(26 * var(--u)) 0 calc(40 * var(--u)); padding-top: calc(22 * var(--u)); border-top: 1px solid rgba(255, 171, 0, .55); font: 400 calc(22 * var(--u))/1.4 var(--f-body); color: var(--ink-2); }
+.cover-sub { margin: calc(18 * var(--u)) 0 calc(40 * var(--u)); font: 400 calc(22 * var(--u))/1.4 var(--f-body); color: var(--ink-2); }
 .cover-menu { display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
 .cv-btn {
   display: flex; align-items: center; justify-content: space-between; gap: calc(14 * var(--u)); text-align: left;
@@ -767,7 +767,7 @@ body { position: fixed; inset: 0; }
   .cover { padding-right: max(5cqw, var(--safe-r)); }
   .cover-in { width: min(46cqw, 420px); }
   .cover-title { font-size: min(max(48px, 22cqh), 9cqw); }
-  .cover-sub { font-size: 13.5px; margin: 12px 0 14px; padding-top: 10px; }
+  .cover-sub { font-size: 13.5px; margin: 8px 0 14px; }
   .cover-menu { gap: 8px; }
   .cv-btn { min-height: 44px; padding: 8px 16px; font-size: 16px; border-radius: 8px; }
   .cv-note { font-size: 12px; }
