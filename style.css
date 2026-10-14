@@ -227,7 +227,7 @@ body { position: fixed; inset: 0; }
 .sndbtn[aria-pressed="false"] { color: var(--ink-2); border-color: rgba(255, 255, 255, .22); box-shadow: none; }
 .sndbtn[aria-pressed="false"] .snd-wave { display: none; }
 .sndbtn[aria-pressed="false"] .snd-off { display: inline; }
-.sndbtn:hover { background: rgba(255, 171, 0, .14); border-color: var(--amber); box-shadow: 0 0 calc(26 * var(--u)) rgba(255, 171, 0, .34); color: #ffc13b; }
+.sndbtn:hover { background: linear-gradient(rgba(255, 171, 0, .14), rgba(255, 171, 0, .14)), var(--panel); border-color: #ffab00; box-shadow: 0 0 calc(26 * var(--u)) rgba(255, 171, 0, .34); color: #ffc13b; }
 .sndbtn:active { transform: scale(.97); }
 .sndbtn:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 .roadbook {
@@ -240,8 +240,8 @@ body { position: fixed; inset: 0; }
   transition: background .18s, border-color .18s, box-shadow .18s, transform .12s, color .18s;
 }
 .roadbook-ico { width: calc(24 * var(--u)); height: calc(24 * var(--u)); min-width: 18px; min-height: 18px; flex: none; }
-.roadbook:hover { background: rgba(255, 171, 0, .14); border-color: var(--amber); box-shadow: 0 0 calc(26 * var(--u)) rgba(255, 171, 0, .34); color: #ffc13b; }
-.roadbook:active { transform: scale(.97); background: rgba(255, 171, 0, .24); }
+.roadbook:hover { background: linear-gradient(rgba(255, 171, 0, .14), rgba(255, 171, 0, .14)), var(--panel); border-color: #ffab00; box-shadow: 0 0 calc(26 * var(--u)) rgba(255, 171, 0, .34); color: #ffc13b; }
+.roadbook:active { transform: scale(.97); background: linear-gradient(rgba(255, 171, 0, .24), rgba(255, 171, 0, .24)), var(--panel); }
 .roadbook:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
 
 @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
