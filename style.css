@@ -687,16 +687,12 @@ body { position: fixed; inset: 0; }
   animation: fade .8s ease;
 }
 .cover[hidden] { display: none; }
-.cover-in { width: calc(520 * var(--u)); display: flex; flex-direction: column; }
-.cover-kick {
-  font: 300 calc(16 * var(--u))/1.3 var(--f-head); text-transform: uppercase; letter-spacing: .14em; color: var(--ink-2);
-  padding-bottom: calc(18 * var(--u)); border-bottom: 1px solid rgba(255, 171, 0, .55);
-}
+.cover-in { width: calc(580 * var(--u)); display: flex; flex-direction: column; }
 .cover-title {
-  margin: calc(22 * var(--u)) 0 0; font: 800 calc(150 * var(--u))/.95 var(--f-head); text-transform: uppercase; letter-spacing: -.02em; white-space: nowrap;
+  margin: 0; font: 800 calc(112 * var(--u))/.95 var(--f-head); text-transform: uppercase; letter-spacing: -.02em; white-space: nowrap;
   color: var(--amber); text-shadow: 0 0 calc(60 * var(--u)) rgba(255, 171, 0, .28);
 }
-.cover-sub { margin: calc(18 * var(--u)) 0 calc(44 * var(--u)); font: 400 calc(21 * var(--u))/1.4 var(--f-body); color: var(--ink-2); max-width: 92%; }
+.cover-sub { margin: calc(26 * var(--u)) 0 calc(40 * var(--u)); padding-top: calc(22 * var(--u)); border-top: 1px solid rgba(255, 171, 0, .55); font: 400 calc(22 * var(--u))/1.4 var(--f-body); color: var(--ink-2); }
 .cover-menu { display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
 .cv-btn {
   display: flex; align-items: center; justify-content: space-between; gap: calc(14 * var(--u)); text-align: left;
@@ -770,9 +766,8 @@ body { position: fixed; inset: 0; }
 @container stage (max-height: 480px) {
   .cover { padding-right: max(5cqw, var(--safe-r)); }
   .cover-in { width: min(46cqw, 420px); }
-  .cover-kick { font-size: 10.5px; padding-bottom: 9px; letter-spacing: .1em; }
-  .cover-title { font-size: max(64px, 25cqh); margin-top: 8px; }
-  .cover-sub { font-size: 13.5px; margin: 8px 0 14px; }
+  .cover-title { font-size: min(max(48px, 22cqh), 9cqw); }
+  .cover-sub { font-size: 13.5px; margin: 12px 0 14px; padding-top: 10px; }
   .cover-menu { gap: 8px; }
   .cv-btn { min-height: 44px; padding: 8px 16px; font-size: 16px; border-radius: 8px; }
   .cv-note { font-size: 12px; }
@@ -788,7 +783,7 @@ body { position: fixed; inset: 0; }
   .toc-tag { top: 6px; right: 6px; font-size: 9px; padding: 4px 7px; gap: 4px; }
 }
 @container stage (max-height: 350px) {
-  .cover-title { font-size: 56px; }
+  .cover-title { font-size: min(52px, 9cqw); }
   .cover-sub { display: none; }
   .cover-in { margin-top: 30px; }
 }
