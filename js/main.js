@@ -307,10 +307,11 @@
     var n = clkNode.childNodes; n[0].nodeValue = t[0]; n[2].nodeValue = t[1]; n[4].nodeValue = t[2];
     document.getElementById('loc').title = locTitle;
   }
-  var locTitle = '', lastHud = null, curScene = null;
-  /* «N дней до ралли …»: для сцен без своей мелкой подписи */
+  var locTitle = '', lastHud = null, curScene = null, curDate = null;
+  /* «N дней до ралли …»: для сцен без своей мелкой подписи.
+     Дата берётся из date у реплики (если задана), иначе из sceneDate по сцене: в длинных сценах, где проходят дни и недели (5.2), счётчик меняется по ходу сцены */
   function daysTail(scene) {
-    var d0 = S.sceneDate && S.sceneDate[scene]; if (!d0 || !S.events) return '';
+    var d0 = curDate || (S.sceneDate && S.sceneDate[scene]); if (!d0 || !S.events) return '';
     var t0 = Date.parse(d0 + 'T12:00:00Z');
     for (var i = 0; i < S.events.length; i++) {
       var n = Math.round((Date.parse(S.events[i].date + 'T12:00:00Z') - t0) / 86400000);
@@ -1161,8 +1162,9 @@
   }
   function applyProps(b, animate) {
     if (b.set) Object.keys(b.set).forEach(function (k) { flags[k] = b.set[k]; });
-    if (b.scene) curScene = b.scene;
-    if (b.hud) setHud(b.hud); else if (b.scene && lastHud) setHud(lastHud);   // новая сцена без своей шапки: часы переходят на её время
+    if (b.scene) { curScene = b.scene; curDate = null; }       // новая сцена — дата снова по sceneDate
+    if (b.date) curDate = b.date;                              // «ГГГГ-ММ-ДД» у реплики: счётчик дней до ралли считается от неё
+    if (b.hud) setHud(b.hud); else if ((b.scene || b.date) && lastHud) setHud(lastHud);   // новая сцена без своей шапки: часы переходят на её время; новая дата — обновить счётчик
     if (b.music !== undefined) setMusic(b.music, !animate, b.musicFade);
     if (b.bg) setBg(b.bg, !animate);
     if (b.move !== undefined) fxMove(!!b.move);
