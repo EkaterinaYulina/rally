@@ -349,7 +349,8 @@
     locTitle = (h.pre ? h.pre + ' ' : '') + h.name + ((hasClk || sub.length) ? ' · ' + (hasClk ? clkLast + (sub.length ? ' · ' : '') : '') + sub.join(' · ') : '');
     document.getElementById('loc').title = locTitle;   // полная подпись по наведению, если на узком экране она обрезана
   }
-  // подложка под шапкой одинаковая на всех фонах (см. .scrim-top и .hud-l::before в style.css): списки светлых фонов убраны, чтобы тень не прыгала между сценами
+  // фоны со светлым левым верхним углом (относительная яркость ≥ 0,25): текст и деления шапки тёмные, без подложки и теней; на остальных — светлые
+  var INK_DARK = ['bg14', 'bg24', 'bg31', 'bg34', 'bg35', 'bg38', 'bg43', 'bg44', 'bg45b', 'bg47a', 'bg47b', 'bg57'];
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null }, markT = { car: null, trust: null };
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
@@ -1152,6 +1153,7 @@
     act = ni; bgCur = key;
     fxSet(key);
     el.frame.setAttribute('data-bg', key);
+    el.frame.classList.toggle('ink-dark', INK_DARK.indexOf(key) >= 0);
     el.bgLabel.setAttribute('aria-label', d.label);
   }
   function applyProps(b, animate) {
