@@ -150,7 +150,7 @@
   var ORDM = ['', 'первом', 'втором', 'третьем', 'четвёртом', 'пятом', 'шестом', 'седьмом', 'восьмом', 'девятом', 'десятом', 'одиннадцатом', 'двенадцатом', 'тринадцатом', 'четырнадцатом', 'пятнадцатом', 'шестнадцатом', 'семнадцатом', 'восемнадцатом', 'девятнадцатом', 'двадцатом'];   // предложный падеж: «на третьем месте»
   var dKey = null, dVal = null;
   function isRet2() {                                // сход на «Печорах» (4.5Б): не хранится флагом, считается по снимку 🔧 перед 4.5 — не «застревает» при прыжках по маршрутному листу
-    return flags.k45 === 'B' && !!snaps.s45 && (snaps.s45.car - 4) <= 3;
+    return flags.k45 === 'B' && !!snaps.s45 && ((snaps.s45.car - 4) <= 3 || snaps.s45.trust <= RallyModel.TRUST_NO_READ);
   }
   function alexTimes() {                             // время Алекса на этапах 0 (Ильмень), 1 (Рускеала), 2 (Печоры), 4 (Урал); null — этап ещё не стартовал, сход или Алекс не заявлен (3 — «Горный край»)
     var ch = {};
@@ -354,10 +354,6 @@
   var INK_DARK = ['bg14', 'bg43', 'bg47b'];
   var SHADE_BG = ['bg22', 'bg24', 'bg31', 'bg33', 'bg34', 'bg35', 'bg37', 'bg38', 'bg44', 'bg45b', 'bg47a', 'bg57', 'bg61', 'bg64'];
   var indState = { car: {}, trust: {} }, dirT = { car: null, trust: null }, revT = { car: null, trust: null }, markT = { car: null, trust: null };
-  function segN(k, word) {                           // сколько из 10 делений горит, если число неизвестно (слово поставлено вручную): «кончилась» / «Нет» — 0
-    if (S.zeroWords.indexOf(word) >= 0 || S.noneWords.indexOf(word) >= 0) return 0;
-    var r = S.bandRep[k][word]; return r == null ? 0 : r;
-  }
   function setInd(k, patch, animate, dir) {
     var s = indState[k], t = el.ind[k];
     var wasNone = s.word != null && S.noneWords.indexOf(s.word) >= 0;
@@ -368,7 +364,7 @@
     t.name.textContent = k === 'car' ? (s.model || S.carModel) : s.name;    // подпись под делениями: у машины — модель («Fiesta R2T»), слово «Машина» только когда машины нет; у штурмана — «Доверие штурмана»
     t.box.classList.toggle('gone', isNone);              // нет машины / нет штурмана — индикатор пропадает
     t.word.textContent = s.word;                       // слово состояния в интерфейсе не показывается — только для скринридера
-    var n = patch.n != null ? patch.n : (patch.word ? segN(k, patch.word) : (s.n == null ? 0 : s.n));
+    var n = patch.n != null ? patch.n : (s.n == null ? 0 : s.n);   // число делений — только из числа
     var old = s.n; s.n = n;
     if (t.seg) {
       var kids = t.seg.children;
@@ -417,7 +413,7 @@
       stats[k] = nv;
       var dir = ((e.add !== undefined || e.dir) && old != null && nv !== old) ? (nv > old ? 'up' : 'down') : null;
       setInd(k, { name: S.bands[k].name, word: wordFor(k, nv), n: nv, model: k === 'car' ? S.carModel : undefined }, animate, dir);
-      if (animate && dir) el.sr.textContent = S.bands[k].name + (dir === 'up' ? ' выросла. ' : ' упала. ') + wordFor(k, nv);
+      if (animate && dir) el.sr.textContent = S.bands[k].name + (dir === 'up' ? ' выросла: ' : ' упала: ') + nv + ' из 10';
     });
   }
 
@@ -1399,7 +1395,7 @@
   function showHudBeat(b, opts) {                   // только индикаторы, крупно, с отметкой «что изменилось за главу»
     screenCommon(b, opts);
     showDelta(!!b.delta);
-    el.sr.textContent = ['car', 'trust'].map(function (k) { return S.bands[k].name + ' ' + wordFor(k, stats[k]) + (el.ind[k].was.textContent ? ' (' + el.ind[k].was.textContent.replace(/[▲▼] /, '') + ')' : ''); }).join('. ');
+    el.sr.textContent = ['car', 'trust'].map(function (k) { return S.bands[k].name + ' ' + stats[k] + ' из 10' + (el.ind[k].was.textContent ? ' (' + el.ind[k].was.textContent.replace(/[▲▼] /, '') + ')' : ''); }).join('. ');
   }
 
   function typeIn(b, shownEl, restEl, hintEl, opts) {

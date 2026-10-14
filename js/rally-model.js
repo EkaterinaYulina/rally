@@ -10,6 +10,18 @@
 const RallyModel = (function () {
   const M = RALLY_DATA.model;
 
+  // Вес доверия (v7). Штраф к времени этапа по 🤝 на снимке старта этапа; действует с «Рускеалы» (этап 1):
+  // на «Ильмене» доверие — стартовая точка, а не результат поступков игрока.
+  const TRUST_LADDER = [[2, 30], [4, 15], [5, 5]]; // [🤝 не выше, +секунд]
+  const TRUST_LADDER_FROM_STAGE = 1;
+  // «Печоры», 4.5-Б: при 🤝 не выше порога штурман не выдерживает темп на пределе — сход (см. main.js isRet2).
+  const TRUST_NO_READ = 5;
+  function trustPenalty(stageIndex, trust) {
+    if (stageIndex < TRUST_LADDER_FROM_STAGE) return 0;
+    for (const [maxTrust, sec] of TRUST_LADDER) if (trust <= maxTrust) return sec;
+    return 0;
+  }
+
   // Разовые потери времени, привязанные к конкретным выборам сценария.
   // Ключ — id выбора, значение — функция(optionLetter, state) -> секунды (0, если не применимо).
   const ONE_OFF_LOSSES = {
@@ -21,7 +33,13 @@ const RallyModel = (function () {
       return 0;
     }, // «Рускеала»
     '4.4': (opt) => (opt === 'А' ? 20 : 0), // «Печоры»
-    '4.5': (opt) => (opt === 'А' ? M.roadpace_loss : 0), // «Печоры» — дорожный темп
+    // v7: время Печор считается по 🔧 ПОСЛЕ 4.5 (А: −3, Б: −pen45), а не по снимку до выбора
+    '4.5': (opt, state) => {
+      const car = state.car == null ? 10 : state.car;
+      if (opt === 'А') return M.roadpace_loss + Math.min(car, 3) * M.K_car; // дорожный темп + износ
+      if (opt === 'Б') return Math.min(car, M.pen45) * M.K_car;              // на пределе: мотор «платит» здесь
+      return 0;
+    },
   };
 
   // Индекс этапа (0-based) в RALLY_DATA.stages, к которому относится разовая потеря выбора.
@@ -41,14 +59,14 @@ const RallyModel = (function () {
    * @param {object} state — { choices: {id:letter}, flags: string[] }
    */
   function alexStageTime(stageIndex, trust, car, state) {
-    let t = M.A0 + (10 - trust) * M.K_trust + (10 - car) * M.K_car + M.stage_bias[stageIndex];
+    let t = M.A0 + (10 - trust) * M.K_trust + (10 - car) * M.K_car + M.stage_bias[stageIndex] + trustPenalty(stageIndex, trust);
 
     for (const choiceId in CHOICE_STAGE_INDEX) {
       if (CHOICE_STAGE_INDEX[choiceId] !== stageIndex) continue;
       const opt = state.choices[choiceId];
       if (!opt) continue;
       const fn = ONE_OFF_LOSSES[choiceId];
-      if (fn) t += fn(opt, state);
+      if (fn) t += fn(opt, Object.assign({ car: car }, state));
     }
     if (stageIndex === 5 && state.choices['6.6'] === 'Б' && state.flags.includes('риск_прошёл')) {
       t -= 1.5; // успешный риск в 6.6
@@ -203,6 +221,8 @@ const RallyModel = (function () {
 
   return {
     alexStageTime,
+    trustPenalty,
+    TRUST_NO_READ,
     placeOnStage,
     protocolWindow,
     seasonPoints,

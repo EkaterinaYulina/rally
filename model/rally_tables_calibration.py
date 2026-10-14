@@ -24,6 +24,10 @@ FAR=[False,False,False,True,True,False]
 ALEX=4
 F,R,D="fin","ret","dns"
 SEED=20260926
+TRUST_NO_READ=5                       # v7: порог схода на «Печорах» (4.5-Б)
+def trust_pen(st,t):                  # v7: вес доверия; с «Рускеалы» (этап 1), на «Ильмене» — стартовая точка
+    if st<1: return 0
+    return 30 if t<=2 else 15 if t<=4 else 5 if t<=5 else 0
 
 # № пилот штурман команда база темп статусы по шести этапам
 CORE=[
@@ -147,11 +151,12 @@ def run(ch):
     if ch["c42"]=="А": flags.add("Денис_намекнул")     # v6: сц.4.2 — давить/отпустить
     if ch["c44"]=="А": C(2); loss[2]+=20
     elif ch["c44"]=="В": C(2)                     # {не_сдал_назад}: Толя верит на слово
-    snap[2]=(trust,car); pre45=car; ret=False
+    snap[2]=(trust,car); pre45=car; ret=False; trust45=trust
     if ch["c45"]=="А": C(-3); T(1); loss[2]+=ROADPACE; flags.add("сберегли")
     else:
         C(-PEN45)
-        if car<=THR45: ret=True; snap[2]=None
+        if car<=THR45 or trust45<=TRUST_NO_READ: ret=True; snap[2]=None   # v7: 🤝 ≤ 5 — штурман не тянет темп на пределе
+    if snap[2] is not None: snap[2]=(trust45,car)   # v7: время Печор — по 🔧 после 4.5
     drop = CAP_DROP_RET if ret else (CAP_DROP_SAVED if "сберегли" in flags else CAP_DROP)
     car=max(0,min(10,pre45-drop))                 # капиталка: предпечорское минус износ
     # 5.2: при {молчание} спонсор жёстче — блокирует один флаг, а не два
@@ -218,7 +223,7 @@ def ev(ch):
     for st in range(6):
         if snap[st] is None: key.append(None); continue
         t,c=snap[st]
-        tm=A0+(10-t)*KT+(10-c)*KC+loss[st]+BIAS[st]
+        tm=A0+(10-t)*KT+(10-c)*KC+loss[st]+BIAS[st]+trust_pen(st,t)
         key.append(bisect.bisect_left(DELT[st],tm)+1)
     pos,gap,lad=finish(tuple(key))
     e="В" if crash else ("А" if pos==1 else "Б" if pos==2 else "Г")
