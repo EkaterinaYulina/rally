@@ -651,6 +651,23 @@ body { position: fixed; inset: 0; }
   .tt.st .proto-tbl .c-gap { width: 70px; }
 }
 
+/* Телефон, широкое поле (≥ ~2:1): финальная сцена composed влево — сдвигаем картинку вправо, слева мягко уходит в тёмную базу */
+@container stage (max-height: 480px) and (min-aspect-ratio: 2.05/1) {
+  .frame[data-bg="bg67a"] .bg, .frame[data-bg="bg67b"] .bg {
+    transform: translateX(6cqw);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 9cqw); mask-image: linear-gradient(90deg, transparent 0, #000 9cqw);
+  }
+  .frame.proto-on[data-bg="bg67a"] .bg, .frame.proto-on[data-bg="bg67b"] .bg { transform: translateX(6cqw) scale(1.07); }
+}
+
+/* Телефон: таблицы не должны налезать на колонку индикаторов (слева 14 + 156 px) */
+@container stage (max-height: 480px) and (min-width: 780px) {
+  .proto { padding-left: calc(max(14px, var(--safe-l)) + 176px); }
+}
+@container stage (max-height: 480px) and (max-width: 779px) {
+  .frame.proto-on .inds { opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+}
+
 /* Очень низкое поле (телефон с баннером, ≤ 350) */
 @container stage (max-height: 350px) {
   .dlg-text { font-size: 15px; line-height: 1.34; }
