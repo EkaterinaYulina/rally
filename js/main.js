@@ -1174,12 +1174,6 @@
     if (b.delta !== undefined) showDelta(!!b.delta);
     if (b.pulse && animate && !STATIC) b.pulse.forEach(function (k) { var w = el.ind[k].seg; w.classList.remove('pulse'); void w.offsetWidth; w.classList.add('pulse'); });
   }
-  function wordLevel(k, w) {                          // место слова в полосе: чем выше, тем лучше; слова обнуления («кончилась», «потеряно») — ниже всех
-    if (S.zeroWords.indexOf(w) >= 0) return -1;
-    var ws = S.bands[k].words;
-    for (var q = 0; q < ws.length; q++) if (ws[q][2] === w) return ws.length - q;
-    return 0;
-  }
   function showDelta(on) {                          // крупные индикаторы: что изменилось с начала главы — деления: прибавилось (светлые) / убыло (красный пунктир)
     el.frame.classList.toggle('inds-delta', on);
     ['car', 'trust'].forEach(function (k) {
