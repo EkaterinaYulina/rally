@@ -1841,7 +1841,7 @@
     if (coverSave && !(coverSave.i > 0)) coverSave = null;
     var cont = $('cvContinue'); cont.hidden = !coverSave;
     if (coverSave) { var cn = chapOf(coverSave.i); $('cvContinueNote').textContent = 'Глава ' + cn; }
-    var nw = $('cvNew'); nw.firstChild.textContent = 'Новая игра'; nw.classList.remove('arm');
+    var nw = $('cvNew'); nw.firstChild.textContent = coverSave ? 'Новая игра' : 'Начать'; nw.classList.remove('arm'); nw.classList.toggle('primary', !coverSave);
     $('cvToc').hidden = false;
     el.frame.classList.add('menu-on'); $('cover').hidden = false; $('toc').hidden = true;
     applyProps({ bg: 'bg11', music: 'line_lock' }, false);
@@ -1939,7 +1939,7 @@
     var nw = $('cvNew');
     if (coverSave && !nw.classList.contains('arm')) {
       nw.classList.add('arm'); nw.firstChild.textContent = 'Точно начать заново?';
-      clearTimeout(newArm); newArm = setTimeout(function () { nw.classList.remove('arm'); nw.firstChild.textContent = 'Новая игра'; }, 3500);
+      clearTimeout(newArm); newArm = setTimeout(function () { nw.classList.remove('arm'); nw.firstChild.textContent = coverSave ? 'Новая игра' : 'Начать'; }, 3500);
       return;
     }
     startNew();
