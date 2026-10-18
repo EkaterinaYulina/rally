@@ -158,10 +158,13 @@
 
   <!-- Обложка: первый экран. Свой арт и живая атмосфера (js/cover-fx.js), поверх — название и меню -->
   <section class="cover" id="cover" aria-label="Главное меню" hidden>
-    <div class="cv-art" aria-hidden="true">
-      <div class="cv-bg"></div><div class="cv-fog cv-fog-a"></div><div class="cv-fog cv-fog-b"></div>
-      <div class="cv-sun"></div><div class="cv-lamp cv-lamp-l"></div><div class="cv-lamp cv-lamp-r"></div>
-      <canvas class="cv-fx" id="cvFx" width="1600" height="900"></canvas>
+    <div class="cv-fill" aria-hidden="true"></div>
+    <div class="cv-box" aria-hidden="true">
+      <div class="cv-art" aria-hidden="true">
+        <div class="cv-bg"></div><div class="cv-fog cv-fog-a"></div><div class="cv-fog cv-fog-b"></div>
+        <div class="cv-sun"></div><div class="cv-lamp cv-lamp-l"></div><div class="cv-lamp cv-lamp-r"></div>
+        <canvas class="cv-fx" id="cvFx" width="1600" height="900"></canvas>
+      </div>
     </div>
     <div class="cv-shade" aria-hidden="true"></div>
     <button class="sndbtn cover-snd" id="coverSnd" type="button" aria-label="Звук включён" aria-pressed="true" title="Звук (S)">

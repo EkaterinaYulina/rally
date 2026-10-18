@@ -670,17 +670,23 @@ body { position: fixed; inset: 0; }
 
 /* ---------- Обложка ---------- */
 /* Титульный экран: арт 1600×900 (assets/title-bg.webp) + живая атмосфера (js/cover-fx.js). Блок слева: название · подзаголовок · кнопки. */
-.cover { position: absolute; inset: 0; z-index: 12; cursor: default; overflow: hidden; color: var(--ink); animation: fade .8s ease; }
+.cover { --a: min(0.0625cqw, 0.11111cqh); /* 1a = 1px кадра арта 1600×900; не зависит от телефонного --u */
+  position: absolute; inset: 0; z-index: 12; cursor: default; overflow: hidden; color: var(--ink); animation: fade .8s ease; }
 .cover[hidden] { display: none; }
 /* ---------- арт и живая атмосфера ---------- */
+.cv-fill { position: absolute; inset: -6%; background: url(assets/title-bg.webp) center / cover no-repeat; filter: blur(calc(46 * var(--a))) brightness(.5) saturate(.9); }
+/* бокс = кадр макета 1600×900 (1u = 1px макета): арт никогда не обрезается, при другом соотношении сторон полосы добирает .cv-fill */
+.cv-box { position: absolute; left: 50%; top: 50%; width: calc(1600 * var(--a)); height: calc(900 * var(--a)); transform: translate(-50%, -50%); overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 8%, #000 92%, transparent); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 8%, #000 92%, transparent); mask-composite: intersect; }
 .cv-art { position: absolute; inset: 0; transform-origin: 68% 42%; animation: push 28s ease-in-out infinite alternate; will-change: transform; }
-@keyframes push { from { transform: scale(1); } to { transform: scale(1.045) translate3d(-0.4%, 0, 0); } }
-.cv-bg { position: absolute; inset: 0; background: url(assets/title-bg.webp) center / cover no-repeat; }
+@keyframes push { from { transform: scale(1); } to { transform: scale(1.03); } }
+.cv-bg { position: absolute; inset: 0; background: url(assets/title-bg.webp) center / 100% 100% no-repeat; }
 .cv-fog { position: absolute; left: -20%; right: -20%; pointer-events: none; mix-blend-mode: screen; }
-.cv-fog-a { top: 58%; height: 36%; opacity: .26; filter: blur(calc(14 * var(--u)));
+.cv-fog-a { top: 58%; height: 36%; opacity: .26; filter: blur(calc(14 * var(--a)));
   background: radial-gradient(40% 50% at 20% 60%, #b8a58c 0, transparent 70%), radial-gradient(34% 46% at 58% 50%, #a99580 0, transparent 70%), radial-gradient(30% 42% at 90% 62%, #b8a58c 0, transparent 70%);
   animation: fogA 34s ease-in-out infinite alternate; }
-.cv-fog-b { top: 42%; height: 28%; opacity: .14; filter: blur(calc(20 * var(--u)));
+.cv-fog-b { top: 42%; height: 28%; opacity: .14; filter: blur(calc(20 * var(--a)));
   background: radial-gradient(36% 50% at 30% 50%, #9fb0c4 0, transparent 70%), radial-gradient(32% 50% at 75% 55%, #9fb0c4 0, transparent 70%);
   animation: fogB 46s ease-in-out infinite alternate; }
 @keyframes fogA { from { transform: translate3d(-3%, 0, 0); } to { transform: translate3d(4%, -1.2%, 0); } }
@@ -688,12 +694,12 @@ body { position: fixed; inset: 0; }
 
 /* свечение закатного солнца, фар — координаты в юнитах кадра 1600×900 */
 .cv-sun, .cv-lamp { position: absolute; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; }
-.cv-sun { left: calc(1045 * var(--u) - 130 * var(--u)); top: calc(325 * var(--u) - 130 * var(--u)); width: calc(260 * var(--u)); height: calc(260 * var(--u));
+.cv-sun { left: calc(1045 * var(--a) - 130 * var(--a)); top: calc(325 * var(--a) - 130 * var(--a)); width: calc(260 * var(--a)); height: calc(260 * var(--a));
   background: radial-gradient(circle, rgba(255,190,110,.55) 0, rgba(255,150,60,.18) 38%, transparent 68%); animation: sun 7s ease-in-out infinite alternate; }
 @keyframes sun { from { opacity: .65; transform: scale(.96); } to { opacity: 1; transform: scale(1.06); } }
-.cv-lamp { width: calc(150 * var(--u)); height: calc(110 * var(--u)); background: radial-gradient(closest-side, rgba(255,244,214,.75) 0, rgba(255,236,190,.22) 45%, transparent 100%); opacity: .55; animation: lamp 5.5s steps(1) infinite; }
-.cv-lamp-l { left: calc(848 * var(--u) - 75 * var(--u)); top: calc(742 * var(--u) - 55 * var(--u)); }
-.cv-lamp-r { left: calc(968 * var(--u) - 75 * var(--u)); top: calc(740 * var(--u) - 55 * var(--u)); animation-delay: -2.1s; }
+.cv-lamp { width: calc(150 * var(--a)); height: calc(110 * var(--a)); background: radial-gradient(closest-side, rgba(255,244,214,.75) 0, rgba(255,236,190,.22) 45%, transparent 100%); opacity: .55; animation: lamp 5.5s steps(1) infinite; }
+.cv-lamp-l { left: calc(848 * var(--a) - 75 * var(--a)); top: calc(742 * var(--a) - 55 * var(--a)); }
+.cv-lamp-r { left: calc(968 * var(--a) - 75 * var(--a)); top: calc(740 * var(--a) - 55 * var(--a)); animation-delay: -2.1s; }
 @keyframes lamp { 0%,100% { opacity: .55; } 12% { opacity: .42; } 14% { opacity: .62; } 46% { opacity: .5; } 48% { opacity: .66; } 72% { opacity: .52; } }
 .cover.ev .cv-lamp { animation: flare 1.4s ease-out 1; }
 @keyframes flare { 0% { opacity: .55; transform: scale(1); } 18% { opacity: 1; transform: scale(1.35); } 100% { opacity: .55; transform: scale(1); } }
@@ -704,33 +710,33 @@ body { position: fixed; inset: 0; }
   background: linear-gradient(90deg, rgba(8,8,12,.82) 0%, rgba(8,8,12,.6) 18%, rgba(8,8,12,.28) 32%, rgba(8,8,12,0) 42%), linear-gradient(rgba(8,8,12,.35), rgba(8,8,12,0) 20%); }
 
 /* ---------- блок: название · подзаголовок · кнопки ---------- */
-.cover-in { position: absolute; z-index: 2; left: calc(80 * var(--u)); top: calc(262 * var(--u)); width: calc(568 * var(--u)); display: flex; flex-direction: column; align-items: stretch; }
+.cover-in { position: absolute; z-index: 2; left: calc(50% - 720 * var(--a)); top: calc(50% - 188 * var(--a)); width: calc(568 * var(--a)); display: flex; flex-direction: column; align-items: stretch; }
 .cover-title {
-  margin: 0; text-align: center; font: 800 calc(120 * var(--u))/.82 var(--f-head); text-transform: uppercase; letter-spacing: 0; white-space: nowrap;
+  margin: 0; text-align: center; font: 800 calc(120 * var(--a))/.82 var(--f-head); text-transform: uppercase; letter-spacing: 0; white-space: nowrap;
   color: transparent; -webkit-text-fill-color: transparent;
   background:
     linear-gradient(100deg, transparent 38%, rgba(255,236,190,.7) 50%, transparent 62%) 130% 0 / 260% 100% no-repeat,
     url(assets/title-dust.png) center / 100% 100% no-repeat;
   -webkit-background-clip: text; background-clip: text;
-  filter: drop-shadow(0 0 calc(24 * var(--u)) rgba(255,171,0,.30)) drop-shadow(0 calc(4 * var(--u)) calc(3 * var(--u)) rgba(0,0,0,.65));
-  padding: calc(14 * var(--u)) 0 calc(6 * var(--u));
+  filter: drop-shadow(0 0 calc(24 * var(--a)) rgba(255,171,0,.30)) drop-shadow(0 calc(4 * var(--a)) calc(3 * var(--a)) rgba(0,0,0,.65));
+  padding: calc(14 * var(--a)) 0 calc(6 * var(--a));
 }
 .cover.ev .cover-title { animation: sweep 1.5s ease-in-out 1; }
 @keyframes sweep { from { background-position: 130% 0, center; } to { background-position: -40% 0, center; } }
 
-.cover-sub { display: flex; align-items: center; gap: calc(20 * var(--u)); margin: calc(18 * var(--u)) 0 calc(36 * var(--u)); font: 400 calc(26 * var(--u))/1.2 var(--f-body); color: var(--ink-2); white-space: nowrap; }
+.cover-sub { display: flex; align-items: center; gap: calc(20 * var(--a)); margin: calc(18 * var(--a)) 0 calc(36 * var(--a)); font: 400 max(11.5px, calc(26 * var(--a)))/1.2 var(--f-body); color: var(--ink-2); white-space: nowrap; }
 .cover-sub::before, .cover-sub::after { content: ''; flex: 1; height: 1px; background: rgba(236,230,214,.35); }
 
-.cover-menu { display: flex; flex-direction: column; gap: calc(16 * var(--u)); }
+.cover-menu { display: flex; flex-direction: column; gap: calc(16 * var(--a)); }
 .cv-btn {
   display: flex; align-items: center; justify-content: center; text-align: center;
-  min-height: max(44px, calc(66 * var(--u))); padding: calc(14 * var(--u)) calc(26 * var(--u));
-  font: 500 calc(25 * var(--u))/1.1 var(--f-body); color: var(--ink); background: var(--panel);
-  border: 1px solid var(--panel-line); border-radius: calc(10 * var(--u)); cursor: pointer;
+  min-height: max(44px, calc(66 * var(--a))); padding: calc(14 * var(--a)) calc(26 * var(--a));
+  font: 500 calc(25 * var(--a))/1.1 var(--f-body); color: var(--ink); background: var(--panel);
+  border: 1px solid var(--panel-line); border-radius: calc(10 * var(--a)); cursor: pointer;
   transition: background .18s, border-color .18s, transform .12s, color .18s, box-shadow .18s;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
-.cv-btn:hover, .cv-btn.primary { border-color: var(--amber); background: rgba(255,171,0,.12); color: #ffc13b; box-shadow: 0 0 calc(26 * var(--u)) rgba(255,171,0,.26); }
+.cv-btn:hover, .cv-btn.primary { border-color: var(--amber); background: rgba(255,171,0,.12); color: #ffc13b; box-shadow: 0 0 calc(26 * var(--a)) rgba(255,171,0,.26); }
 .cv-btn.primary { background: rgba(46,36,14,.96); border-width: 2px; }
 .cover-menu:hover .cv-btn.primary:not(:hover) { border-color: var(--panel-line); background: var(--panel); color: var(--ink); box-shadow: none; border-width: 1px; }
 .cv-btn:active { transform: scale(.985); }
@@ -740,7 +746,7 @@ body { position: fixed; inset: 0; }
 /* появление блока — как в игре (coverIn) */
 .cover-in > * { animation: coverIn .7s cubic-bezier(.2,.8,.2,1) both; }
 .cover-in > :nth-child(2) { animation-delay: .08s; } .cover-in > :nth-child(3) { animation-delay: .18s; }
-@keyframes coverIn { from { opacity: 0; transform: translateY(calc(14 * var(--u))); } to { opacity: 1; transform: none; } }
+@keyframes coverIn { from { opacity: 0; transform: translateY(calc(14 * var(--a))); } to { opacity: 1; transform: none; } }
 .cover.ev .cover-title { animation: sweep 1.5s ease-in-out 1; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -750,8 +756,8 @@ body { position: fixed; inset: 0; }
 
 .cv-btn[hidden] { display: none; }
 .cv-btn > span { pointer-events: none; }
-.cv-note { font: 400 calc(15 * var(--u))/1.1 var(--f-body); font-style: normal; opacity: .72; white-space: nowrap; margin-left: calc(12 * var(--u)); }
-.cover-snd { position: absolute; z-index: 3; top: max(calc(26 * var(--u)), 10px); right: max(calc(30 * var(--u)), var(--safe-r)); }
+.cv-note { font: 400 calc(15 * var(--a))/1.1 var(--f-body); font-style: normal; opacity: .72; white-space: nowrap; margin-left: calc(12 * var(--a)); }
+.cover-snd { position: absolute; z-index: 3; top: max(calc(26 * var(--a)), 10px); right: max(calc(30 * var(--a)), var(--safe-r)); }
 .cover-snd[aria-pressed="false"] .snd-wave { display: none; }
 .cover-snd[aria-pressed="false"] .snd-off { display: inline; }
 .cover-in { z-index: 2; }
@@ -805,9 +811,8 @@ body { position: fixed; inset: 0; }
 
 /* ---------- Телефон (альбомная ориентация) ---------- */
 @container stage (max-height: 480px) {
-  .cover-in { left: max(4cqw, var(--safe-l)); top: 24cqh; width: min(36cqw, 420px); }
-  .cover-title { font-size: calc(min(36cqw, 420px) / 4.75); padding: 4px 0 2px; }
-  .cover-sub { font-size: 12px; gap: 8px; margin: 8px 0 12px; }
+  .cover-title { padding: 4px 0 2px; }
+  .cover-sub { gap: 8px; margin: 8px 0 12px; }
   .cover-menu { gap: 8px; }
   .cv-btn { min-height: 44px; padding: 8px 16px; font-size: 16px; border-radius: 8px; }
   .cv-note { font-size: 12px; }
