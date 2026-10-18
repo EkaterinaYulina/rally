@@ -156,19 +156,25 @@
     </div>
   </div>
 
-  <!-- Обложка: первый экран. Фон и эффекты — из игрового слоя (кадр bg11), поверх — затемнение и меню -->
+  <!-- Обложка: первый экран. Свой арт и живая атмосфера (js/cover-fx.js), поверх — название и меню -->
   <section class="cover" id="cover" aria-label="Главное меню" hidden>
+    <div class="cv-art" aria-hidden="true">
+      <div class="cv-bg"></div><div class="cv-fog cv-fog-a"></div><div class="cv-fog cv-fog-b"></div>
+      <div class="cv-sun"></div><div class="cv-lamp cv-lamp-l"></div><div class="cv-lamp cv-lamp-r"></div>
+      <canvas class="cv-fx" id="cvFx" width="1600" height="900"></canvas>
+    </div>
+    <div class="cv-shade" aria-hidden="true"></div>
     <button class="sndbtn cover-snd" id="coverSnd" type="button" aria-label="Звук включён" aria-pressed="true" title="Звук (S)">
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z"/><path class="snd-wave" d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/><path class="snd-off" d="M16 9.5l5 5M21 9.5l-5 5"/>
       </svg>
     </button>
     <div class="cover-in">
-      <h1 class="cover-title">Ралли</h1>
-      <div class="cover-sub">Сезон чемпионата глазами пилота</div>
+      <div class="cv-t"><h1 class="cover-title">Ралли</h1></div>
+      <p class="cover-sub"><span>Сезон чемпионата глазами пилота</span></p>
       <nav class="cover-menu" aria-label="Меню">
         <button class="cv-btn primary" id="cvContinue" type="button" hidden><span>Продолжить</span><i class="cv-note" id="cvContinueNote"></i></button>
-        <button class="cv-btn" id="cvNew" type="button"><span>Новая игра</span></button>
+        <button class="cv-btn primary" id="cvNew" type="button"><span>Начать</span></button>
         <button class="cv-btn" id="cvToc" type="button"><span>Главы</span></button>
       </nav>
     </div>
@@ -200,5 +206,6 @@
 <script src="js/rally-model.js"></script>
 <script src="js/story.js"></script>
 <script src="js/main.js"></script>
+<script src="js/cover-fx.js"></script>
 </body>
 </html>
