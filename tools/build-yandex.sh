@@ -2,7 +2,7 @@
 # Сборка для Яндекс Игр: dist-yandex/ и rally-yandex.zip в корне репозитория.
 # Что отличается от рабочей версии:
 #   - подключён /sdk.js (его отдаёт сама платформа, в файлах его нет);
-#   - window.VN_PROD = true: нет кнопки «Назад», отладочных параметров (?s, ?f, ?end, ?adtest …) и шага назад по клавише ←;
+#   - window.VN_PROD = true: нет кнопок «Назад» и «Маршрутный лист», отладочных параметров (?s, ?f, ?end, ?adtest …) и шага назад по клавише ←;
 #   - в архив не попадают служебные файлы (README, model, tools, .git).
 # Запуск из корня репозитория:  bash tools/build-yandex.sh
 set -euo pipefail
@@ -18,6 +18,9 @@ s = open(p, encoding='utf8').read()
 # кнопка «Назад» — техническая, только для вычитки
 s, n = re.subn(r'\s*<button class="sndbtn backbtn" id="backbtn".*?</button>', '', s, flags=re.S)
 assert n == 1, 'кнопка Назад не найдена'
+# маршрутный лист — отладочный список сцен: кнопки нет (сама панель остаётся скрытой, кодом не открывается; клавиша M отключена)
+s, n = re.subn(r'\s*<button class="roadbook" id="roadbook".*?</button>', '', s, flags=re.S)
+assert n == 1, 'кнопка Маршрутный лист не найдена'
 # флаг сборки и SDK платформы — перед остальными скриптами
 flag = '<script>window.VN_PROD = true;</script>\n<script src="/sdk.js"></script>\n'
 assert '<script src="js/rally-data.js">' in s

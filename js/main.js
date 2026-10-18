@@ -1771,7 +1771,7 @@
   function closeTT() { ttOpen = false; $('tt').hidden = true; try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {} }   // фокус не возвращаем на кнопку: иначе пробел снова открыл бы таблицу
   $('ttbtn').addEventListener('click', function (e) { e.stopPropagation(); if (ttOpen) closeTT(); else openTT(); });
   $('ttClose').addEventListener('click', function (e) { e.stopPropagation(); closeTT(); });
-  $('roadbook').addEventListener('click', function (e) { e.stopPropagation(); if (rbOpen) closeRb(); else openRb(); });
+  (function () { var b = $('roadbook'); if (b) b.addEventListener('click', function (e) { e.stopPropagation(); if (rbOpen) closeRb(); else openRb(); }); })();   // в сборке для Яндекса кнопки нет
 
   /* ---------- ввод ---------- */
   el.stage.addEventListener('click', function (e) {
@@ -1784,7 +1784,7 @@
     if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen && !ttOpen) { e.preventDefault(); openCoverFromGame(); return; }
     if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
     if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { e.preventDefault(); openTT(); return; }
-    if (e.code === 'KeyM' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
+    if (e.code === 'KeyM' && !window.VN_PROD && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
     if (rbOpen) { if (e.key === 'Escape') { e.preventDefault(); closeRb(); } return; }
     if (mode === 'choice' && !ended) {
       var opts = el.choice.querySelectorAll('.opt'), n = parseInt(e.key, 10);
