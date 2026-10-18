@@ -3,7 +3,7 @@
   'use strict';
   var S = window.STORY, B = S.beats;
   var $ = function (id) { return document.getElementById(id); };
-  var params = new URLSearchParams(location.search);
+  var params = new URLSearchParams(window.VN_PROD ? '' : location.search);   // в сборке для Яндекса отладочные параметры отключены
   var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var STATIC = params.has('static') || REDUCED;   // без набора текста (проверка / отключена анимация)
   var CPS_MS = 22;                                 // мс на символ
@@ -137,7 +137,7 @@
     });
   })();
 
-  var typing = false, timer = null, pos = 0, ended = false, autoT = null, cutAt = 0, bgCur = null, cutOpen = false, chapHold = false, chapT = null;
+  var typing = false, timer = null, pos = 0, ended = false, autoT = null, cutAt = 0, bgCur = null, cutOpen = false, chapHold = false, chapT = null, curChapN = 0;
   var stats = { car: null, trust: null };
   var rbOpen = false, rbSel = {}, ttOpen = false, menuOpen = false;
   /* состояние, которое не лежит в флагах и пересобирается replay(): снимки 🤝/🔧 на старте этапов,
@@ -1453,7 +1453,7 @@
     typeIn(b, el.cShown, el.cRest, el.cHint, opts);
   }
   function showChapter(b, opts) {                   // чёрный кадр с названием главы; хук для рекламной паузы — событие vn:chapter
-    mode = 'cut'; cutAt = performance.now(); chapHold = true;
+    mode = 'cut'; cutAt = performance.now(); chapHold = true; curChapN = b.n || 0;
     if (b.music !== undefined) setMusic(b.music, !!(opts && opts.instant), b.musicFade);
     Object.keys(el.portraits).forEach(function (k) { el.portraits[k].classList.remove('on'); });
     el.dialog.classList.add('away');
@@ -1511,7 +1511,7 @@
   /* ---------- переходы ---------- */
   function backSync() { var b = document.getElementById('backbtn'); if (b) b.disabled = !hist.length; }
   function back() {                                 // шаг назад на предыдущую показанную реплику (техническая кнопка для вычитки)
-    if (rbOpen || ttOpen || !hist.length) return;
+    if (window.VN_PROD || rbOpen || ttOpen || !hist.length) return;       // в сборке для Яндекса шага назад нет
     var h = hist.pop();
     ended = false; el.end.hidden = true;
     stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false; hideScreen();
@@ -1530,10 +1530,12 @@
     hist.push({ i: i, f: entryF }); i = n; entryF = JSON.stringify(flags); backSync(); save(); showBeat(i);
   }
   function advance() {
-    if (ended || rbOpen || ttOpen || menuOpen || mode === 'choice') return;
+    if ((window.VN_ADS && window.VN_ADS.busy) || ended || rbOpen || ttOpen || menuOpen || mode === 'choice') return;
     if (mode === 'cut' && chapHold) {               // карточка главы: тап не сразу
       if (performance.now() - cutAt < 700) return;
-      chapHold = false; go(); return;
+      chapHold = false;
+      if (window.VN_ADS && curChapN >= 2) { window.VN_ADS.interstitial(go); return; }   // реклама в паузе между главами (кроме пролога); go() — после неё
+      go(); return;
     }
     if (mode === 'cut' && autoT) {                  // тап во время чёрного кадра — пропустить, но не сразу
       if (performance.now() - cutAt < 450) return;
@@ -1777,6 +1779,7 @@
     advance();
   });
   document.addEventListener('keydown', function (e) {
+    if (window.VN_ADS && window.VN_ADS.busy) return;
     if (menuOpen) { menuKey(e); return; }
     if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen && !ttOpen) { e.preventDefault(); openCoverFromGame(); return; }
     if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
@@ -1795,7 +1798,7 @@
     }
     if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && !e.altKey) { MUS.unlocked = true; setMuted(!MUS.muted); return; }   // S — звук вкл/выкл (M занята маршрутным листом)
     if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
-    if (e.key === 'ArrowLeft') { e.preventDefault(); back(); return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); if (!window.VN_PROD) back(); return; }
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); advance(); }
   });
   el.endBtn.addEventListener('click', restart);
