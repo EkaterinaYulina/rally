@@ -742,6 +742,7 @@ body { position: fixed; inset: 0; }
 .cv-btn:active { transform: scale(.985); }
 
 .cv-btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.cv-btn.primary:focus-visible { outline: none; }   /* подсвеченная кнопка уже с янтарной рамкой: второй контур даёт «двойную рамку» */
 
 /* появление блока — как в игре (coverIn) */
 .cover-in > * { animation: coverIn .7s cubic-bezier(.2,.8,.2,1) both; }
@@ -811,10 +812,12 @@ body { position: fixed; inset: 0; }
 
 /* ---------- Телефон (альбомная ориентация) ---------- */
 @container stage (max-height: 480px) {
-  .cover-title { padding: 4px 0 2px; }
-  .cover-sub { gap: 8px; margin: 8px 0 12px; }
+  .cover-in { top: calc(50% - 200 * var(--a)); }
+  .cover-title { padding: 2px 0 0; }
+  .cover-sub { gap: 8px; margin: 6px 0 10px; }
   .cover-menu { gap: 8px; }
-  .cv-btn { min-height: 44px; padding: 8px 16px; font-size: 16px; border-radius: 8px; }
+  .cv-btn { min-height: 42px; padding: 6px 16px; font-size: 16px; border-radius: 8px; }
+  .cv-btn.primary { border-width: 1.5px; box-shadow: 0 0 10px rgba(255,171,0,.22); }
   .cv-note { font-size: 12px; }
   .cover-snd { top: 8px; right: max(12px, var(--safe-r)); width: 44px; height: 44px; border-radius: 8px; }
   .toc { padding: 10px max(14px, var(--safe-r)) 10px max(14px, var(--safe-l)); gap: 8px; }
