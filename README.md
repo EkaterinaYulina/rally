@@ -43,3 +43,9 @@ HTML5/JS-новелла про ралли для Яндекс Игр. Сборк
 - `?nocover` — пропустить обложку (любой из `?s`, `?b`, `?f`, `?k`, `?end` тоже её пропускает)
 
 В консоли доступен `window.__vn` (jump, flags, snaps, derived, stats, lines, opts, protocol, ending).
+
+## Сборки для VK
+
+- `bash tools/build-vk.sh` — версия для VK Mini Apps: VK Bridge, реклама между главами, прогресс игрока в хранилище ВК (`js/vk-boot.js` подтягивает его до старта игры и дублирует записи; если ВК не отвечает 2,5 с, игра идёт на localStorage). Результат — `rally-vk.zip`.
+- `bash tools/build-vkplay.sh` — версия для VK Play (iframe): без технических кнопок и без SDK, реклама не показывается. Результат — `rally-vkplay.zip`.
+- Обе сборки лежат на GitHub Pages в репозитории rally-vk: корень — VK Play, `mini/` — мини-приложение.

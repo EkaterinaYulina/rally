@@ -3,6 +3,7 @@
 # Что отличается от рабочей версии:
 #   - подключён VK Bridge (vendor/vk-bridge.min.js, лежит в архиве — внешних запросов нет);
 #   - вместо js/ads.js работает js/ads-vk.js (VKWebAppInit, реклама между главами, пауза при сворачивании);
+#   - js/vk-boot.js: прогресс игрока хранится в хранилище VK Bridge (переходит между устройствами), а не только в localStorage;
 #   - window.VN_PROD = true: нет кнопок «Назад» и «Маршрутный лист», отладочных параметров (?s, ?f, ?end, ?adtest …) и шага назад по клавише ←;
 #   - в архив не попадают служебные файлы (README, model, tools, .git, ads.js).
 # Запуск из корня репозитория:  bash tools/build-vk.sh
@@ -29,9 +30,10 @@ assert n == 1, 'кнопка Маршрутный лист не найдена'
 flag = '<script>window.VN_PROD = true;</script>\n<script src="vendor/vk-bridge.min.js"></script>\n'
 assert '<script src="js/rally-data.js">' in s
 s = s.replace('<script src="js/rally-data.js">', flag + '<script src="js/rally-data.js">', 1)
-# слой рекламы: ads.js (Яндекс) -> ads-vk.js (VK)
-assert '<script src="js/ads.js">' in s
-s = s.replace('<script src="js/ads.js">', '<script src="js/ads-vk.js">', 1)
+# main.js, cover-fx.js и ads-vk.js подключает js/vk-boot.js — после того как из хранилища VK Bridge подтянется прогресс игрока
+tail = '<script src="js/main.js"></script>\n<script src="js/cover-fx.js"></script>\n<script src="js/ads.js"></script>'
+assert tail in s, 'блок скриптов main/cover-fx/ads не найден'
+s = s.replace(tail, '<script src="js/vk-boot.js"></script>', 1)
 open(p, 'w', encoding='utf8').write(s)
 PY
 find "$OUT" -name '.DS_Store' -delete
