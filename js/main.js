@@ -1505,7 +1505,7 @@
   /* ---------- переходы ---------- */
   function backSync() { var b = document.getElementById('backbtn'); if (b) b.disabled = !hist.length; }
   function back() {                                 // шаг назад на предыдущую показанную реплику (техническая кнопка для вычитки)
-    if (window.VN_PROD || rbOpen || ttOpen || !hist.length) return;       // в сборке для Яндекса шага назад нет
+    if (window.VN_PROD || window.VN_HIDE_DEBUG_UI || rbOpen || ttOpen || !hist.length) return;       // в сборке для Яндекса шага назад нет
     var h = hist.pop();
     ended = false; el.end.hidden = true;
     stopTyping(); clearAuto(); clearTimeout(chapT); chapHold = false; hideScreen();
@@ -1778,7 +1778,7 @@
     if (e.code === 'KeyO' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen && !ttOpen) { e.preventDefault(); openCoverFromGame(); return; }
     if (ttOpen) { if (e.key === 'Escape' || (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey)) { e.preventDefault(); closeTT(); } return; }
     if (e.code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey && !rbOpen) { e.preventDefault(); openTT(); return; }
-    if (e.code === 'KeyM' && !window.VN_PROD && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
+    if (e.code === 'KeyM' && !window.VN_PROD && !window.VN_HIDE_DEBUG_UI && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); if (rbOpen) closeRb(); else openRb(); return; }
     if (rbOpen) { if (e.key === 'Escape') { e.preventDefault(); closeRb(); } return; }
     if (mode === 'choice' && !ended) {
       var opts = el.choice.querySelectorAll('.opt'), n = parseInt(e.key, 10);
@@ -1792,7 +1792,7 @@
     }
     if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey && !e.altKey) { MUS.unlocked = true; setMuted(!MUS.muted); return; }   // S — звук вкл/выкл (M занята маршрутным листом)
     if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
-    if (e.key === 'ArrowLeft') { e.preventDefault(); if (!window.VN_PROD) back(); return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); if (!window.VN_PROD && !window.VN_HIDE_DEBUG_UI) back(); return; }
     if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); advance(); }
   });
   el.endBtn.addEventListener('click', restart);

@@ -53,9 +53,13 @@
     <button class="sndbtn" id="menubtn" type="button" aria-label="Меню" title="Меню (O)">
       <svg class="sndbtn-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h10"/></svg>
     </button>
+    <!-- [ПОРТФОЛИО] Кнопка «Назад» скрыта. Чтобы вернуть: снять комментарий с кнопки (убрать открывающую и закрывающую пометки комментария вокруг неё)
+         и удалить строку window.VN_HIDE_DEBUG_UI ниже, перед подключением скриптов -->
+    <!--
     <button class="sndbtn backbtn" id="backbtn" type="button" aria-label="Назад" title="Назад (←) — техническая кнопка для вычитки" disabled>
       <svg class="sndbtn-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
     </button>
+    -->
     <button class="sndbtn" id="sndbtn" type="button" aria-label="Звук" aria-pressed="true" title="Звук (S)">
       <svg class="sndbtn-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z"/>
@@ -69,12 +73,16 @@
       </svg>
       <span class="roadbook-txt">Таблица</span>
     </button>
+    <!-- [ПОРТФОЛИО] Кнопка «Маршрутный лист» скрыта. Чтобы вернуть: снять комментарий с кнопки (убрать открывающую и закрывающую пометки комментария вокруг неё)
+         и удалить строку window.VN_HIDE_DEBUG_UI ниже, перед подключением скриптов -->
+    <!--
     <button class="roadbook" id="roadbook" type="button" aria-label="Маршрутный лист" title="Маршрутный лист (M)">
       <svg class="roadbook-ico" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/>
       </svg>
       <span class="roadbook-txt">Маршрутный лист</span>
     </button>
+    -->
     </div>
   </header>
 
@@ -205,6 +213,8 @@
   <div class="rotate-sub">Игра работает в горизонтальном режиме</div>
 </div>
 
+<!-- [ПОРТФОЛИО] Прячет клавиши ← (назад) и M (маршрутный лист). Чтобы вернуть техническое управление — удалить эту строку и раскомментировать кнопки в шапке -->
+<script>window.VN_HIDE_DEBUG_UI = true;</script>
 <script src="js/rally-data.js"></script>
 <script src="js/rally-model.js"></script>
 <script src="js/story.js"></script>
